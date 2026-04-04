@@ -20,6 +20,9 @@ public class Profile {
     @Column(nullable = false)
     private String password;
 
+    @Column(name = "profile_pic_url")
+    private String profilePicUrl; // Added
+
     // Getters and Setters
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
@@ -32,4 +35,7 @@ public class Profile {
     
     public String getPassword() { return password; }
     public void setPassword(String password) { this.password = password; }
+
+    public String getProfilePicUrl() { return profilePicUrl; }
+    public void setProfilePicUrl(String profilePicUrl) { this.profilePicUrl = profilePicUrl; }
 }
