@@ -476,7 +476,6 @@ const App: React.FC = () => {
                         <img 
                           src={currentUser?.profilePicUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser?.username}`}
                           alt="Profile" 
-                          className="w-full h-full object-cover"
                         />
                       </div>
                       {/* Username - Hidden on Mobile Width (< 640px) */}
