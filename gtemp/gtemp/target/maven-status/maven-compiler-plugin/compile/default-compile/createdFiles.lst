@@ -1,5 +1,5 @@
 com\example\gtemp\GtempApplication.class
-com\example\gtemp\model\User.class
-com\example\gtemp\repository\UserRepository.class
+com\example\gtemp\repository\ProfileRepository.class
+com\example\gtemp\model\Profile.class
 com\example\gtemp\controller\AuthController.class
 com\example\gtemp\model\LoginRequest.class

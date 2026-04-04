@@ -17,6 +17,7 @@ import {
   Mail,
   Lock
 } from 'lucide-react';
+import { isVariableStatement } from 'typescript';
 
 // Types
 interface Project {
@@ -84,6 +85,7 @@ const HighlightedText: React.FC<{ text: string; highlight: string }> = ({ text, 
 
 const App: React.FC = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [currentUser, setCurrentUser] = useState<{ username: string } | null>(null);
   const [authModal, setAuthModal] = useState({ isOpen: false, tab: 'login' as 'login' | 'register' });
   const [authForm, setAuthForm] = useState({ 
     username: '', 
@@ -146,45 +148,63 @@ const App: React.FC = () => {
     });
   }, [searchQuery, engineFilter, genreFilter, priceSort, minPrice, maxPrice, activeTab]);
 
-  const handleAuthAction = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setFormError('');
-
-  const endpoint = authModal.tab === 'login' ? '/api/login' : '/api/register';
-  
-  // Prepare the payload based on the backend User and LoginRequest models
-  const payload = authModal.tab === 'login' 
-    ? { username: authForm.email, password: authForm.password } // Backend login check uses "username" field for both email/user
-    : { username: authForm.username, email: authForm.email, password: authForm.password };
-
-  try {
-    const response = await fetch(`http://localhost:8080${endpoint}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-
-    const result = await response.text();
-
-    if (response.ok && (result === "Login successful" || result === "User registered successfully")) {
-      // If registering, you might want to switch to login tab or auto-login
-      if (authModal.tab === 'register') {
-        setAuthModal({ ...authModal, tab: 'login' });
-        alert("Registration successful! Please sign in.");
-      } else {
+  //keep user log in
+  useEffect(() => {
+    // Check if user data exists in local storage on startup
+    const savedUser = localStorage.getItem('gtemp_user');
+    if (savedUser) {
+      const parsedUser = JSON.parse(savedUser);
+      if (parsedUser.loggedIn) {
         setIsLoggedIn(true);
-        setAuthModal({ ...authModal, isOpen: false });
+        setCurrentUser({ username: parsedUser.username }); // Set the username here
       }
-      setAuthForm({ username: '', email: '', password: '', confirmPassword: '' });
-    } else {
-      setFormError(result); // Displays "Invalid credentials", "Username already exists", etc.
     }
-  } catch (error) {
-    setFormError("Server connection failed. Is the backend running?");
-  }
-};
+  }, []); // Empty array means this runs once when the app starts
+
+  const handleAuthAction = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError('');
+
+    const endpoint = authModal.tab === 'login' ? '/api/login' : '/api/register';
+    
+    // Prepare the payload based on the backend User and LoginRequest models
+    const payload = authModal.tab === 'login' 
+      ? { username: authForm.email, password: authForm.password } // Backend login check uses "username" field for both email/user
+      : { username: authForm.username, email: authForm.email, password: authForm.password };
+
+    try {
+      const response = await fetch(`http://localhost:8080${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await response.text();
+
+      if (response.ok && (result === "Login successful" || result === "User registered successfully")) {
+        // If registering, you might want to switch to login tab or auto-login
+        if (authModal.tab === 'register') {
+          setAuthModal({ ...authModal, tab: 'login' });
+          alert("Registration successful! Please sign in.");
+        } else {
+          const userData = { loggedIn: true, username: authForm.email };
+          localStorage.setItem('gtemp_user', JSON.stringify(userData));
+          
+          setIsLoggedIn(true);
+          setCurrentUser({ username: authForm.email });
+          setAuthModal({ ...authModal, isOpen: false });
+        }
+        setAuthForm({ username: '', email: '', password: '', confirmPassword: '' });
+      } else {
+        setFormError(result); // Displays "Invalid credentials", "Username already exists", etc.
+      }
+    } catch (error) {
+      setFormError("Server connection failed. Is the backend running?");
+    }
+  };
 
   const handleLogout = () => {
+    localStorage.removeItem('gtemp_user');
     setIsLoggedIn(false);
     setIsProfileOpen(false);
   };
@@ -440,10 +460,15 @@ const App: React.FC = () => {
                       className="flex items-center gap-1.5 p-0.5 pr-2 rounded-full hover:bg-white/5 transition-all"
                     >
                       <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 border border-white/10 overflow-hidden">
-                        <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="Profile" />
+                        <img 
+                          src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser?.username || 'default'}`} 
+                          alt="Profile" 
+                        />
                       </div>
                       {/* Username - Hidden on Mobile Width (< 640px) */}
-                      <span className="hidden sm:block text-[11px] font-medium">User_01</span>
+                      <span className="hidden sm:block text-[11px] font-medium">
+                        {currentUser?.username || 'User'}
+                      </span>
                       
                       <ChevronDown size={12} className={`transition-transform text-gray-400 ${isProfileOpen ? 'rotate-180' : ''}`} />
                     </button>
@@ -664,3 +689,22 @@ const App: React.FC = () => {
 };
 
 export default App;
+
+//variables
+//useeffect
+//handlelogout()
+//handleAuthAction(){ if (resposnse.ok..){if{}else{setCurrentUser({ username: authForm.email });} }
+
+// // {/* <button 
+// //   onClick={() => setIsProfileOpen(!isProfileOpen)}
+// //   className="flex items-center gap-1.5 p-0.5 pr-2 rounded-full hover:bg-white/5 transition-all"
+// // >
+// UPDATE THIS{
+// //   <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 border border-white/10 overflow-hidden">
+// //     <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="Profile" />
+// //   </div>
+// //   {/* Username - Hidden on Mobile Width (< 640px) */}
+// //   <span className="hidden sm:block text-[11px] font-medium">User_01</span>
+// }
+// //   <ChevronDown size={12} className={`transition-transform text-gray-400 ${isProfileOpen ? 'rotate-180' : ''}`} />
+// // </button> */}

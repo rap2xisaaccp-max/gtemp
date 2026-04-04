@@ -1,13 +1,15 @@
+//User.java
 package com.example.gtemp.model;
 
 import jakarta.persistence.*;
+import java.util.UUID;
 
 @Entity
-@Table(name = "users") 
-public class User {
+@Table(name = "profiles") 
+public class Profile {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.AUTO) 
+    private UUID id;
 
     @Column(unique = true, nullable = false)
     private String username;
@@ -19,8 +21,8 @@ public class User {
     private String password;
 
     // Getters and Setters
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public UUID getId() { return id; }
+    public void setId(UUID id) { this.id = id; }
     
     public String getUsername() { return username; }
     public void setUsername(String username) { this.username = username; }

@@ -1,8 +1,9 @@
+//AuthController.java
 package com.example.gtemp.controller;
 
 import com.example.gtemp.model.LoginRequest;
-import com.example.gtemp.model.User;
-import com.example.gtemp.repository.UserRepository;
+import com.example.gtemp.model.Profile;
+import com.example.gtemp.repository.ProfileRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -15,13 +16,13 @@ import java.util.Optional;
 public class AuthController {
 
     @Autowired
-    private UserRepository userRepository;
+    private ProfileRepository profileRepository;
 
     @PostMapping("/login")
 public String login(@RequestBody LoginRequest request) {
     // Try finding by username first, then by email
-    Optional<User> user = userRepository.findByUsername(request.getUsername())
-            .or(() -> userRepository.findByEmail(request.getUsername()));
+    Optional<Profile> user = profileRepository.findByUsername(request.getUsername())
+            .or(() -> profileRepository.findByEmail(request.getUsername()));
 
     if (user.isPresent() && user.get().getPassword().equals(request.getPassword())) {
         return "Login successful";
@@ -31,17 +32,17 @@ public String login(@RequestBody LoginRequest request) {
 }
 
 @PostMapping("/register")
-public String register(@RequestBody User newUser) {
+public String register(@RequestBody Profile newUser) {
     // Check if username exists
-    if (userRepository.findByUsername(newUser.getUsername()).isPresent()) {
+    if (profileRepository.findByUsername(newUser.getUsername()).isPresent()) {
         return "Username already exists";
     }
     // Check if email exists
-    if (userRepository.findByEmail(newUser.getEmail()).isPresent()) {
+    if (profileRepository.findByEmail(newUser.getEmail()).isPresent()) {
         return "Email already registered";
     }
     
-    userRepository.save(newUser); 
+    profileRepository.save(newUser); 
     return "User registered successfully";
 }
 }
