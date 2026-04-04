@@ -85,7 +85,7 @@ const HighlightedText: React.FC<{ text: string; highlight: string }> = ({ text, 
 
 const App: React.FC = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [currentUser, setCurrentUser] = useState<{ username: string } | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ username: string; profilePicUrl?: string } | null>(null);
   const [authModal, setAuthModal] = useState({ isOpen: false, tab: 'login' as 'login' | 'register' });
   const [authForm, setAuthForm] = useState({ 
     username: '', 
@@ -156,7 +156,7 @@ const App: React.FC = () => {
       const parsedUser = JSON.parse(savedUser);
       if (parsedUser.loggedIn) {
         setIsLoggedIn(true);
-        setCurrentUser({ username: parsedUser.username }); // Set the username here
+        setCurrentUser({ username: parsedUser.username, profilePicUrl: parsedUser.profilePicUrl }); // Set the username here
       }
     }
   }, []); // Empty array means this runs once when the app starts
@@ -167,9 +167,8 @@ const App: React.FC = () => {
 
     const endpoint = authModal.tab === 'login' ? '/api/login' : '/api/register';
     
-    // Prepare the payload based on the backend User and LoginRequest models
     const payload = authModal.tab === 'login' 
-      ? { username: authForm.email, password: authForm.password } // Backend login check uses "username" field for both email/user
+      ? { username: authForm.email, password: authForm.password } 
       : { username: authForm.username, email: authForm.email, password: authForm.password };
 
     try {
@@ -179,24 +178,38 @@ const App: React.FC = () => {
         body: JSON.stringify(payload),
       });
 
-      const result = await response.text();
-
-      if (response.ok && (result === "Login successful" || result === "User registered successfully")) {
-        // If registering, you might want to switch to login tab or auto-login
-        if (authModal.tab === 'register') {
+      if (authModal.tab === 'register') {
+        const result = await response.text();
+        if (response.ok && result === "User registered successfully") {
           setAuthModal({ ...authModal, tab: 'login' });
           alert("Registration successful! Please sign in.");
+          setAuthForm({ username: '', email: '', password: '', confirmPassword: '' });
         } else {
-          const userData = { loggedIn: true, username: authForm.email };
-          localStorage.setItem('gtemp_user', JSON.stringify(userData));
-          
-          setIsLoggedIn(true);
-          setCurrentUser({ username: authForm.email });
-          setAuthModal({ ...authModal, isOpen: false });
+          setFormError(result);
         }
-        setAuthForm({ username: '', email: '', password: '', confirmPassword: '' });
-      } else {
-        setFormError(result); // Displays "Invalid credentials", "Username already exists", etc.
+        return;
+      }
+
+      // 2. Handle Login (Returns JSON Profile)
+      if (authModal.tab === 'login') {
+        if (response.ok) {
+          const userProfile = await response.json(); // Parse the JSON object from AuthController
+          
+          const userData = { 
+            loggedIn: true, 
+            username: userProfile.username, 
+            profilePicUrl: userProfile.profilePicUrl 
+          };
+
+          localStorage.setItem('gtemp_user', JSON.stringify(userData));
+          setCurrentUser(userData);
+          setIsLoggedIn(true);
+          setAuthModal({ ...authModal, isOpen: false });
+          setAuthForm({ username: '', email: '', password: '', confirmPassword: '' });
+        } else {
+          const errorText = await response.text();
+          setFormError(errorText || "Invalid credentials");
+        }
       }
     } catch (error) {
       setFormError("Server connection failed. Is the backend running?");
@@ -461,8 +474,9 @@ const App: React.FC = () => {
                     >
                       <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 border border-white/10 overflow-hidden">
                         <img 
-                          src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser?.username || 'default'}`} 
+                          src={currentUser?.profilePicUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser?.username}`}
                           alt="Profile" 
+                          className="w-full h-full object-cover"
                         />
                       </div>
                       {/* Username - Hidden on Mobile Width (< 640px) */}

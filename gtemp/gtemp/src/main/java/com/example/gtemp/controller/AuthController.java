@@ -5,6 +5,7 @@ import com.example.gtemp.model.LoginRequest;
 import com.example.gtemp.model.Profile;
 import com.example.gtemp.repository.ProfileRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Optional;
@@ -19,17 +20,17 @@ public class AuthController {
     private ProfileRepository profileRepository;
 
     @PostMapping("/login")
-public String login(@RequestBody LoginRequest request) {
-    // Try finding by username first, then by email
-    Optional<Profile> user = profileRepository.findByUsername(request.getUsername())
-            .or(() -> profileRepository.findByEmail(request.getUsername()));
+    public ResponseEntity<?> login(@RequestBody LoginRequest request) {
+        Optional<Profile> user = profileRepository.findByUsername(request.getUsername())
+                .or(() -> profileRepository.findByEmail(request.getUsername()));
 
-    if (user.isPresent() && user.get().getPassword().equals(request.getPassword())) {
-        return "Login successful";
+        if (user.isPresent() && user.get().getPassword().equals(request.getPassword())) {
+            // Return the full user object so the frontend has the username and pic
+            return ResponseEntity.ok(user.get());
+        }
+
+        return ResponseEntity.status(401).body("Invalid credentials");
     }
-
-    return "Invalid credentials";
-}
 
 @PostMapping("/register")
 public String register(@RequestBody Profile newUser) {
