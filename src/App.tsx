@@ -20,18 +20,22 @@ import {
 import { isVariableStatement } from 'typescript';
 
 // Types
+// App.tsx
 interface Project {
-  id: number;
+  id: string;
   title: string;
-  creator: string;
+  owner: {
+    username: string;
+    profilePicUrl?: string;
+  };
   description: string;
-  downloads: number;
-  raters: number;
-  rating: number;
+  downloadCount: number;
+  ratingCount: number;
+  ratingAvg: number;
   price: number;
-  genre: string[];
+  genres: string[]; // This already matches Project.java @ElementCollection
   engine: string;
-  date: string;
+  releaseDate: string;
 }
 
 interface NavItem {
@@ -50,18 +54,19 @@ const COLORS = {
 };
 
 // Mock Data
-const INITIAL_PROJECTS: Project[] = [
-  { id: 1, title: 'Cyberpunk City Kit', creator: 'NeoAssets', description: 'High-quality sci-fi environment modules.', downloads: 1200, raters: 45, rating: 4.8, price: 45.00, genre: ['RPG', 'Sci-Fi'], engine: 'Unreal', date: '2023-11-15' },
-  { id: 2, title: 'Pixel Platformer Base', creator: 'RetroJoy', description: 'Smooth movement scripts and assets.', downloads: 5400, raters: 120, rating: 4.5, price: 0, genre: ['Platformer'], engine: 'Unity3D', date: '2024-01-10' },
-  { id: 3, title: 'Realistic Forest Pack', creator: 'NatureGen', description: 'Optimized foliage and terrain textures.', downloads: 800, raters: 12, rating: 4.2, price: 29.99, genre: ['Simulation'], engine: 'Unity3D', date: '2023-12-05' },
-  { id: 4, title: 'Obby Master Kit', creator: 'RbxDev', description: 'Everything you need for a professional Obby.', downloads: 15000, raters: 890, rating: 4.9, price: 0, genre: ['Parkour'], engine: 'Roblox Studio', date: '2024-02-20' },
-  { id: 5, title: 'Low Poly Dungeon', creator: 'SimpleShapes', description: 'Modular dungeon pieces for mobile.', downloads: 3200, raters: 56, rating: 4.0, price: 15.00, genre: ['RPG'], engine: 'Godot', date: '2024-02-01' },
-  { id: 6, title: 'Horror Ghost AI', creator: 'SpookyCodes', description: 'Advanced AI behavior for horror games.', downloads: 450, raters: 8, rating: 3.8, price: 12.50, genre: ['Horror'], engine: 'Unreal', date: '2023-10-30' },
-  { id: 7, title: 'Anime Shader Pack', creator: 'VfxKing', description: 'Cell shading for any model.', downloads: 2100, raters: 34, rating: 4.7, price: 19.00, genre: ['Visuals'], engine: 'Unity3D', date: '2024-01-25' },
-  { id: 8, title: 'Spaceship Controller', creator: 'GalacticDev', description: 'Newtonian physics flight script.', downloads: 110, raters: 3, rating: 4.1, price: 5.00, genre: ['Sci-Fi'], engine: 'Godot', date: '2024-02-14' },
-];
+// const INITIAL_PROJECTS: Project[] = [
+//   { id: 1, title: 'Cyberpunk City Kit', creator: 'NeoAssets', description: 'High-quality sci-fi environment modules.', downloads: 1200, raters: 45, rating: 4.8, price: 45.00, genre: ['RPG', 'Sci-Fi'], engine: 'Unreal', date: '2023-11-15' },
+//   { id: 2, title: 'Pixel Platformer Base', creator: 'RetroJoy', description: 'Smooth movement scripts and assets.', downloads: 5400, raters: 120, rating: 4.5, price: 0, genre: ['Platformer'], engine: 'Unity3D', date: '2024-01-10' },
+//   { id: 3, title: 'Realistic Forest Pack', creator: 'NatureGen', description: 'Optimized foliage and terrain textures.', downloads: 800, raters: 12, rating: 4.2, price: 29.99, genre: ['Simulation'], engine: 'Unity3D', date: '2023-12-05' },
+//   { id: 4, title: 'Obby Master Kit', creator: 'RbxDev', description: 'Everything you need for a professional Obby.', downloads: 15000, raters: 890, rating: 4.9, price: 0, genre: ['Parkour'], engine: 'Roblox Studio', date: '2024-02-20' },
+//   { id: 5, title: 'Low Poly Dungeon', creator: 'SimpleShapes', description: 'Modular dungeon pieces for mobile.', downloads: 3200, raters: 56, rating: 4.0, price: 15.00, genre: ['RPG'], engine: 'Godot', date: '2024-02-01' },
+//   { id: 6, title: 'Horror Ghost AI', creator: 'SpookyCodes', description: 'Advanced AI behavior for horror games.', downloads: 450, raters: 8, rating: 3.8, price: 12.50, genre: ['Horror'], engine: 'Unreal', date: '2023-10-30' },
+//   { id: 7, title: 'Anime Shader Pack', creator: 'VfxKing', description: 'Cell shading for any model.', downloads: 2100, raters: 34, rating: 4.7, price: 19.00, genre: ['Visuals'], engine: 'Unity3D', date: '2024-01-25' },
+//   { id: 8, title: 'Spaceship Controller', creator: 'GalacticDev', description: 'Newtonian physics flight script.', downloads: 110, raters: 3, rating: 4.1, price: 5.00, genre: ['Sci-Fi'], engine: 'Godot', date: '2024-02-14' },
+// ];
 
 const HighlightedText: React.FC<{ text: string; highlight: string }> = ({ text, highlight }) => {
+  if (!text) return null; 
   if (!highlight.trim()) return <>{text}</>;
 
   // 'gi' flag ensures global and case-insensitive matching
@@ -84,8 +89,10 @@ const HighlightedText: React.FC<{ text: string; highlight: string }> = ({ text, 
 };
 
 const App: React.FC = () => {
+  const [projects, setProjects] = useState<Project[]>([]);
+
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [currentUser, setCurrentUser] = useState<{ username: string; profilePicUrl?: string } | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ username: string; profilePicUrl?: string; walletBalance?: number;} | null>(null);
   const [authModal, setAuthModal] = useState({ isOpen: false, tab: 'login' as 'login' | 'register' });
   const [authForm, setAuthForm] = useState({ 
     username: '', 
@@ -118,35 +125,52 @@ const App: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const response = await fetch('http://localhost:8080/api/projects');
+        if (response.ok) {
+          const data = await response.json();
+          setProjects(data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch projects:", error);
+      }
+    };
+
+    fetchProjects();
+  }, []);
+
   // Filter Logic
   const filteredData = useMemo(() => {
-    let list = [...INITIAL_PROJECTS];
+    let list = [...projects];
     const searchLower = searchQuery.toLowerCase();
     
     return list.filter(item => {
+      const itemGenres = item.genres || [];
       const matchesSearchLetters = item.title.toLowerCase().includes(searchLower) || 
-                                    item.creator.toLowerCase().includes(searchLower) ||
+                                    // item.creator.toLowerCase().includes(searchLower) ||
                                     item.engine.toLowerCase().includes(searchLower) ||
-                                    item.genre.some(g => g.toLowerCase().includes(searchLower));
-      const matchesSearchWords = item.genre.some(g => g.toLowerCase() === searchLower) ||
-                                  item.creator.toLowerCase().includes(searchLower) ||
+                                    itemGenres.some(g => g.toLowerCase().includes(searchLower));
+      const matchesSearchWords = itemGenres.some(g => g.toLowerCase() === searchLower) ||
+                                  // item.creator.toLowerCase().includes(searchLower) ||
                                   item.engine.toLowerCase() === searchLower ||
                                   item.price.toString() === searchLower;
 
       const matchesEngine = engineFilter === 'All' || item.engine === engineFilter;
-      const matchesGenre = genreFilter === 'All' || item.genre.includes(genreFilter);
+      const matchesGenre = genreFilter === 'All' || itemGenres.includes(genreFilter);
       const matchesPriceRange = item.price >= minPrice && item.price <= maxPrice;
 
       return (matchesSearchLetters || matchesSearchWords) && matchesEngine && matchesGenre && matchesPriceRange;
     }).sort((a, b) => {
       if (priceSort === 'High to Low') return b.price - a.price;
       if (priceSort === 'Low to High') return a.price - b.price;
-      if (activeTab === 'Top Rated') return b.rating - a.rating;
-      if (activeTab === 'Popular') return b.downloads - a.downloads;
-      if (activeTab === 'Recently Updated') return new Date(b.date).getTime() - new Date(a.date).getTime();
+      if (activeTab === 'Top Rated') return b.ratingAvg - a.ratingAvg;
+      if (activeTab === 'Popular') return b.downloadCount - a.downloadCount;
+      if (activeTab === 'Recently Updated') return new Date(b.releaseDate).getTime() - new Date(a.releaseDate).getTime();
       return 0;
     });
-  }, [searchQuery, engineFilter, genreFilter, priceSort, minPrice, maxPrice, activeTab]);
+  }, [projects, searchQuery, engineFilter, genreFilter, priceSort, minPrice, maxPrice, activeTab]);
 
   //keep user log in
   useEffect(() => {
@@ -156,7 +180,7 @@ const App: React.FC = () => {
       const parsedUser = JSON.parse(savedUser);
       if (parsedUser.loggedIn) {
         setIsLoggedIn(true);
-        setCurrentUser({ username: parsedUser.username, profilePicUrl: parsedUser.profilePicUrl }); // Set the username here
+        setCurrentUser({ username: parsedUser.username, profilePicUrl: parsedUser.profilePicUrl, walletBalance: parsedUser.walletBalance || 0 }); // Set the username here
       }
     }
   }, []); // Empty array means this runs once when the app starts
@@ -198,7 +222,8 @@ const App: React.FC = () => {
           const userData = { 
             loggedIn: true, 
             username: userProfile.username, 
-            profilePicUrl: userProfile.profilePicUrl 
+            profilePicUrl: userProfile.profilePicUrl,
+            walletBalance: userProfile.walletBalance || 0
           };
 
           localStorage.setItem('gtemp_user', JSON.stringify(userData));
@@ -225,34 +250,28 @@ const App: React.FC = () => {
 
   const resultCount = useMemo(() => {
     if (!searchQuery.trim() && engineFilter === 'All' && genreFilter === 'All' && minPrice === 0 && maxPrice === 1000) {
-      return INITIAL_PROJECTS.length;
+      return projects.length;
     }
 
     const searchLower = searchQuery.toLowerCase().trim();
     
-    return INITIAL_PROJECTS.filter(item => {
-      // Split title into individual words to avoid partial letter matches
-      const titleWords = item.title.toLowerCase().split(/\s+/);
-      const engineWords = item.engine.toLowerCase().split(/\s+/);
-      
-      const isWordMatch = titleWords.includes(searchLower) || 
-                          engineWords.includes(searchLower) ||
-                          item.genre.some(g => g.toLowerCase() === searchLower) ||
-                          item.engine.toLowerCase() === searchLower ||
-                          item.price.toString() === searchLower;
+    return projects.filter(item => {
+      const itemGenres = item.genres || [];
+      const itemEngine = item.engine || '';
+      const itemTitle = item.title || '';
 
-      const matchesFilters = (engineFilter !== 'All' && item.engine === engineFilter) ||
-                            (genreFilter !== 'All' && item.genre.includes(genreFilter)) ||
-                            ((minPrice > 0 || maxPrice < 1000) && (item.price >= minPrice && item.price <= maxPrice));
+      const matchesSearch = !searchLower || 
+        itemTitle.toLowerCase().includes(searchLower) ||
+        itemEngine.toLowerCase().includes(searchLower) ||
+        itemGenres.some(g => g.toLowerCase().includes(searchLower));
 
-      // If searching, ignore partial matches and only count exact word/category matches
-      if (searchLower) {
-        return isWordMatch;
-      }
+      const matchesEngine = engineFilter === 'All' || itemEngine === engineFilter;
+      const matchesGenre = genreFilter === 'All' || itemGenres.includes(genreFilter);
+      const matchesPrice = item.price >= minPrice && item.price <= maxPrice;
 
-      return matchesFilters;
+      return matchesSearch && matchesEngine && matchesGenre && matchesPrice;
     }).length;
-  }, [searchQuery, engineFilter, genreFilter, minPrice, maxPrice]);
+  }, [projects, searchQuery, engineFilter, genreFilter, minPrice, maxPrice]);
 
   const handleMinChange = (val: string) => {
     const num = Number(val);
@@ -464,7 +483,7 @@ const App: React.FC = () => {
                   
                   <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-emerald-900/20 text-emerald-400 border border-emerald-800/30">
                     <Wallet size={12} className="flex-shrink-0" />
-                    <span className="font-mono text-[10px]">$124.50</span>
+                    <span className="font-mono text-[10px]">${currentUser?.walletBalance?.toFixed(2) || '0.00'}</span>
                   </div>
 
                   <div className="relative" ref={dropdownRef}>
@@ -640,8 +659,14 @@ const App: React.FC = () => {
                   </div>
                 </div>
                 
-                <p className="text-[10px] text-gray-400 mb-1.5">by <span className="text-gray-300 hover:underline cursor-pointer"><HighlightedText text={project.creator} highlight={searchQuery} /></span></p>
-                
+                {/* App.tsx - Updated Line ~535 */}
+                <p className="text-[10px] text-gray-400 mb-1.5">
+                  by <span className="text-gray-300 hover:underline cursor-pointer">
+                    {/* Access owner.username instead of project.ownerId */}
+                    <HighlightedText text={project.owner?.username || 'Unknown'} highlight={searchQuery} />
+                  </span>
+                </p>
+                                
                 <p className="text-[10px] text-gray-400 line-clamp-2 mb-3 leading-tight opacity-80">
                   {project.description}
                 </p>
@@ -650,18 +675,21 @@ const App: React.FC = () => {
                   <div className="flex items-center gap-3 text-[10px] text-gray-400 mb-2 pb-2 border-b border-white/5">
                     <div className="flex items-center gap-1">
                       <Download size={10} className="text-gray-500" />
-                      {project.downloads > 1000 ? `${(project.downloads/1000).toFixed(1)}k` : project.downloads}
+                      {project.downloadCount}
                     </div>
-                    <div className="flex items-center gap-1" title={`${project.raters} reviewers`}>
+                    <div className="flex items-center gap-1">
                       <Star size={10} className="text-yellow-500 fill-yellow-500" />
-                      {project.rating}
-                      <span className="text-gray-500 text-[9px]">({project.raters})</span>
+                      {project.ratingAvg}
+                      <span className="text-gray-500 text-[9px]">({project.ratingCount})</span>
                     </div>
                   </div>
 
+                  {/* App.tsx - Line ~550 */}
                   <div className="flex flex-wrap gap-1 mb-1">
-                    {project.genre.slice(0, 2).map((g, i) => (
-                      <span key={i} className="px-1.5 py-0.5 bg-white/5 rounded text-[9px] border border-white/10 whitespace-nowrap"><HighlightedText text={g} highlight={searchQuery} /></span>
+                    {project.genres?.map((g, i) => ( 
+                      <span key={i} className="px-1.5 py-0.5 bg-white/5 rounded text-[9px] border border-white/10 whitespace-nowrap">
+                        <HighlightedText text={g} highlight={searchQuery} />
+                      </span>
                     ))}
                   </div>
                 </div>
@@ -702,22 +730,3 @@ const App: React.FC = () => {
 };
 
 export default App;
-
-//variables
-//useeffect
-//handlelogout()
-//handleAuthAction(){ if (resposnse.ok..){if{}else{setCurrentUser({ username: authForm.email });} }
-
-// // {/* <button 
-// //   onClick={() => setIsProfileOpen(!isProfileOpen)}
-// //   className="flex items-center gap-1.5 p-0.5 pr-2 rounded-full hover:bg-white/5 transition-all"
-// // >
-// UPDATE THIS{
-// //   <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 border border-white/10 overflow-hidden">
-// //     <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="Profile" />
-// //   </div>
-// //   {/* Username - Hidden on Mobile Width (< 640px) */}
-// //   <span className="hidden sm:block text-[11px] font-medium">User_01</span>
-// }
-// //   <ChevronDown size={12} className={`transition-transform text-gray-400 ${isProfileOpen ? 'rotate-180' : ''}`} />
-// // </button> */}

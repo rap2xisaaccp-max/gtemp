@@ -23,6 +23,9 @@ public class Profile {
     @Column(name = "profile_pic_url")
     private String profilePicUrl; // Added
 
+    @Column(name = "wallet_balance", nullable = false)
+    private Double walletBalance = 0.0; // Default value
+
     // Getters and Setters
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
@@ -38,4 +41,7 @@ public class Profile {
 
     public String getProfilePicUrl() { return profilePicUrl; }
     public void setProfilePicUrl(String profilePicUrl) { this.profilePicUrl = profilePicUrl; }
+
+    public Double getWalletBalance() { return walletBalance; }
+    public void setWalletBalance(Double walletBalance) { this.walletBalance = walletBalance; }
 }
