@@ -128,7 +128,7 @@ const App: React.FC = () => {
   useEffect(() => {
     const fetchProjects = async () => {
       try {
-        const response = await fetch('https://gtemp-backend.onrender.com/api/projects')
+        const response = await fetch('${API_URL}/api/data');
         if (response.ok) {
           const data = await response.json();
           setProjects(data);
