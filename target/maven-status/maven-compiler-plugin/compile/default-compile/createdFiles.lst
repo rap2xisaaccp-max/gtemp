@@ -1,0 +1,10 @@
+com\example\gtemp\GtempApplication.class
+com\example\gtemp\repository\ProfileRepository.class
+com\example\gtemp\repository\ProjectRepository.class
+com\example\gtemp\controller\AuthController.class
+com\example\gtemp\model\LoginRequest.class
+com\example\gtemp\model\ProjectScreenshot.class
+com\example\gtemp\model\Profile.class
+com\example\gtemp\model\ProjectFile.class
+com\example\gtemp\model\Project.class
+com\example\gtemp\controller\ProjectController.class
