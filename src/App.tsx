@@ -124,11 +124,11 @@ const App: React.FC = () => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-
+  const API_URL = process.env.REACT_APP_API_URL;
   useEffect(() => {
     const fetchProjects = async () => {
       try {
-        const response = await fetch('http://localhost:8080/api/projects');
+        const response = await fetch('${API_URL}/api/data');
         if (response.ok) {
           const data = await response.json();
           setProjects(data);
