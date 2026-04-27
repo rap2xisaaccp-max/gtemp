@@ -113,6 +113,7 @@ const App: React.FC = () => {
   const [isHeaderHovered, setIsHeaderHovered] = useState<boolean>(false);
   
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const API_URL = 'https://gtemp-backend.onrender.com';
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -124,7 +125,7 @@ const App: React.FC = () => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-  const API_URL = process.env.REACT_APP_API_URL;
+  
   useEffect(() => {
     const fetchProjects = async () => {
       try {
