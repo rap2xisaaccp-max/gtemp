@@ -128,7 +128,7 @@ const App: React.FC = () => {
   useEffect(() => {
     const fetchProjects = async () => {
       try {
-        const response = await fetch('${API_URL}/api/projects')
+        const response = await fetch('${API_URL}/api/projects');
         if (response.ok) {
           const data = await response.json();
           setProjects(data);
