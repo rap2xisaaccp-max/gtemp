@@ -124,7 +124,7 @@ const App: React.FC = () => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080';
+  const API_URL = 'https://gtemp-backend.onrender.com'; //process.env.REACT_APP_API_URL || 
   useEffect(() => {
     const fetchProjects = async () => {
       try {
