@@ -31,4 +31,4 @@ COPY nginx.conf /etc/nginx/conf.d/default.template
 # 1. Replace $PORT in nginx config
 # 2. Start Nginx in background
 # 3. Start Java in foreground
-CMD sh -c "envsubst '\$PORT' < /etc/nginx/conf.d/default.template > /etc/nginx/conf.d/default.conf && nginx && java -jar app.jar"
+CMD ["sh", "-c", "envsubst '${PORT}' < /etc/nginx/conf.d/default.template > /etc/nginx/conf.d/default.conf && nginx && java -jar app.jar"]
