@@ -124,11 +124,11 @@ const App: React.FC = () => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-  const API_URL = 'https://gtemp-backend.onrender.com'; //process.env.REACT_APP_API_URL || 
+  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080';
   useEffect(() => {
     const fetchProjects = async () => {
       try {
-        const response = await fetch('${API_URL}/api/projects');
+        const response = await fetch(`${API_URL}/api/projects`);
         if (response.ok) {
           const data = await response.json();
           setProjects(data);
@@ -139,7 +139,7 @@ const App: React.FC = () => {
     };
 
     fetchProjects();
-  }, []);
+  }, [API_URL]);
 
   // Filter Logic
   const filteredData = useMemo(() => {
