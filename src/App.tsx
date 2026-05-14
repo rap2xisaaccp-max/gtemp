@@ -207,7 +207,7 @@ const App: React.FC = () => {
       : { username: authForm.username, email: authForm.email, password: authForm.password };
 
     try {
-      const response = await fetch(`http://localhost:8080${endpoint}`, {
+      const response = await fetch(`${API_URL}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
