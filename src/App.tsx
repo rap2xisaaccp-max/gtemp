@@ -42,6 +42,8 @@ interface NavItem {
   icon: React.ReactNode;
   label: string;
   color?: string;
+  view?: string; // Add this
+  tab?: string;  // Add this
 }
 
 const COLORS = {
@@ -102,6 +104,13 @@ const App: React.FC = () => {
   });
   const [formError, setFormError] = useState('');
 
+  //Profiles menu variables
+  const [activeView, setActiveView] = useState<string>('Home');
+  const [collectionTab, setCollectionTab] = useState<string>('Wishlisted');
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const FUND_OPTIONS = [5, 10, 20, 50, 100, 200, 500, 1000];
+  const [isAddingFunds, setIsAddingFunds] = useState(false);
+
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [engineFilter, setEngineFilter] = useState<string>('All');
   const [genreFilter, setGenreFilter] = useState<string>('All');
@@ -113,8 +122,7 @@ const App: React.FC = () => {
   const [isHeaderHovered, setIsHeaderHovered] = useState<boolean>(false);
   
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const API_URL = 'https://gtemp-backend.onrender.com';
-
+  const API_URL = 'http://localhost:8080' ;
   // Close dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -286,14 +294,55 @@ const App: React.FC = () => {
     if (num < minPrice) setMinPrice(num);
   };
 
+  const handleAddFunds = async (amount: number) => {
+    if (!currentUser) return;
+
+    try {
+      // Replace with your actual endpoint for updating wallet balance
+      const response = await fetch(`${API_URL}/api/users/add-funds`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        // Send the username and the amount to be added
+        body: JSON.stringify({ 
+          username: currentUser.username, 
+          amount: amount 
+        }),
+      });
+
+      if (response.ok) {
+        const updatedBalance = (currentUser.walletBalance || 0) + amount;
+        
+        // 1. Update State
+        const updatedUser = { ...currentUser, walletBalance: updatedBalance };
+        setCurrentUser(updatedUser);
+
+        // 2. Sync with LocalStorage
+        const localData = JSON.parse(localStorage.getItem('gtemp_user') || '{}');
+        localStorage.setItem('gtemp_user', JSON.stringify({ 
+          ...localData, 
+          walletBalance: updatedBalance 
+        }));
+
+        setIsAddingFunds(false);
+        alert(`Successfully added $${amount}.00 to your wallet!`);
+      } else {
+        const error = await response.text();
+        alert("Failed to add funds: " + error);
+      }
+    } catch (error) {
+      console.error("Connection error:", error);
+      alert("Could not connect to the server.");
+    }
+  };
+
   const profileItems: NavItem[] = [
-    { icon: <Settings size={16}/>, label: 'Customize Profile' },
-    { icon: <BarChart2 size={16}/>, label: 'Uploads Statistics' },
-    { icon: <Heart size={16}/>, label: 'Wishlisted Projects' },
-    { icon: <Star size={16}/>, label: 'Reviewed Projects' },
-    { icon: <Download size={16}/>, label: 'Purchased Projects' },
-    { icon: <LogOut size={16}/>, label: 'Log out', color: 'text-red-400' },
-  ];
+  { icon: <Settings size={16}/>, label: 'Customize Profile', view: 'Profile' },
+  { icon: <BarChart2 size={16}/>, label: 'Uploads Statistics', view: 'Uploads' },
+  { icon: <Heart size={16}/>, label: 'Wishlisted Projects', view: 'Collection', tab: 'Wishlisted' },
+  { icon: <Star size={16}/>, label: 'Reviewed Projects', view: 'Collection', tab: 'Reviewed' },
+  { icon: <Download size={16}/>, label: 'Purchased Projects', view: 'Collection', tab: 'Purchased' },
+  { icon: <LogOut size={16}/>, label: 'Log out', color: 'text-red-400' },
+];
 
   return (
     <div className="min-h-screen font-sans text-white pb-10" style={{ backgroundColor: COLORS.primary }}>
@@ -445,18 +494,20 @@ const App: React.FC = () => {
             </div>
 
             {/* Search Box Section - Centered and Expandable */}
-             <div className="flex-grow flex justify-center min-w-0">
-              <div className="w-full max-w-xl relative group">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 w-3.5 h-3.5 group-focus-within:text-white" />
-                <input 
-                  type="text" 
-                  placeholder="Search genre, engine, keywords..."
-                  className="w-full pl-8 pr-3 py-1 rounded-full outline-none text-[11px] transition-all"
-                  style={{ backgroundColor: COLORS.primary, border: `1px solid ${COLORS.accent1}` }}
-                  value={searchQuery}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
-                />
-              </div>
+            <div className="flex-grow flex justify-center min-w-0">
+              {activeView === 'Home' && (
+                <div className="w-full max-w-xl relative group">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 w-3.5 h-3.5 group-focus-within:text-white" />
+                  <input 
+                    type="text" 
+                    placeholder="Search genre, engine, keywords..."
+                    className="w-full pl-8 pr-3 py-1 rounded-full outline-none text-[11px] transition-all"
+                    style={{ backgroundColor: COLORS.primary, border: `1px solid ${COLORS.accent1}` }}
+                    value={searchQuery}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
+                  />
+                </div>
+              )}
             </div>
 
             {/* Actions Section */}
@@ -478,9 +529,11 @@ const App: React.FC = () => {
                 </div>
               ) : (
                 <>
-                  <div className="text-[10px] font-medium text-gray-400 hidden lg:block whitespace-nowrap">
-                    <span className="text-white font-bold">{resultCount}</span> Results
-                  </div>
+                  {isLoggedIn && activeView === 'Home' && (
+                    <div className="text-[10px] font-medium text-gray-400 hidden lg:block whitespace-nowrap">
+                      <span className="text-white font-bold">{resultCount}</span> Results
+                    </div>
+                  )}
                   
                   <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-emerald-900/20 text-emerald-400 border border-emerald-800/30">
                     <Wallet size={12} className="flex-shrink-0" />
@@ -518,11 +571,24 @@ const App: React.FC = () => {
                           {profileItems.map((item, i) => (
                             <button 
                               key={i} 
-                              onClick={item.label === 'Log out' ? handleLogout : undefined}
+                              onClick={() => {
+                              if (item.label === 'Log out') {
+                                handleLogout();
+                                setActiveView('Home');
+                              } else {
+                                // Use the nullish coalescing operator (??) to provide 'Home' as a fallback
+                                setActiveView(item.view ?? 'Home'); 
+                                
+                                // Check if item.tab exists before updating the collection tab
+                                if (item.tab) {
+                                  setCollectionTab(item.tab);
+                                }
+                                setIsProfileOpen(false);
+                              }
+                            }}
                               className={`w-full flex items-center gap-2.5 px-3 py-2 text-[11px] hover:bg-white/5 rounded ${item.color || ''}`}
                             >
-                              {item.icon}
-                              {item.label}
+                              {item.icon} {item.label}
                             </button>
                           ))}
                         </div>
@@ -536,85 +602,198 @@ const App: React.FC = () => {
         </header>
 
         {/* SUB HEADER / FILTERS */}
-        <div 
-          className={`
-            transition-all duration-200 ease-in-out border-b border-white/5 overflow-hidden
-            sm:absolute sm:w-full sm:left-0 sm:top-11 sm:z-10
-            ${isHeaderHovered ? 'sm:translate-y-0 sm:opacity-100 sm:max-h-8' : 'sm:-translate-y-2 sm:opacity-0 sm:max-h-0 sm:pointer-events-none'}
-            max-h-8 opacity-100 translate-y-0 pointer-events-auto
-          `} 
-          style={{ backgroundColor: COLORS.secondary }}
-        >
-          <div className="max-w-[1800px] mx-auto flex items-center gap-2 overflow-x-auto no-scrollbar h-8 px-4">
-            <Filter size={10} className="text-gray-500 flex-shrink-0 mr-1" />
-              {['All', 'Popular', 'Recently Updated', 'Top Rated'].map(tab => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`whitespace-nowrap px-4 py-1.5 rounded-full text-[9px] font-medium transition-all ${activeTab === tab ? 'bg-white text-black' : 'hover:bg-white/10'}`}
-                  style={{ border: activeTab === tab ? 'none' : `1px solid ${COLORS.accent1}` }}
-                >
-                  {tab}
-                </button>
-              ))}
+        {activeView === 'Home' && (
+          <div 
+            className={`
+              transition-all duration-200 ease-in-out border-b border-white/5 overflow-hidden
+              sm:absolute sm:w-full sm:left-0 sm:top-11 sm:z-10
+              ${isHeaderHovered ? 'sm:translate-y-0 sm:opacity-100 sm:max-h-8' : 'sm:-translate-y-2 sm:opacity-0 sm:max-h-0 sm:pointer-events-none'}
+              max-h-8 opacity-100 translate-y-0 pointer-events-auto
+            `} 
+            style={{ backgroundColor: COLORS.secondary }}
+          >
+            <div className="max-w-[1800px] mx-auto flex items-center gap-2 overflow-x-auto no-scrollbar h-8 px-4">
+              <Filter size={10} className="text-gray-500 flex-shrink-0 mr-1" />
+                {['All', 'Popular', 'Recently Updated', 'Top Rated'].map(tab => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`whitespace-nowrap px-4 py-1.5 rounded-full text-[9px] font-medium transition-all ${activeTab === tab ? 'bg-white text-black' : 'hover:bg-white/10'}`}
+                    style={{ border: activeTab === tab ? 'none' : `1px solid ${COLORS.accent1}` }}
+                  >
+                    {tab}
+                  </button>
+                ))}
 
-            <div className="h-3 w-[1px] bg-white/10 mx-1 flex-shrink-0" />
+              <div className="h-3 w-[1px] bg-white/10 mx-1 flex-shrink-0" />
 
-            <select 
-              className="bg-transparent border rounded-full px-3 py-1.5 text-[9px] outline-none cursor-pointer"
-              style={{ borderColor: COLORS.accent1 }}
-              value={engineFilter}
-              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setEngineFilter(e.target.value)}
-            >
-              <option className="bg-slate-900" value="All">All Engines</option>
-              <option className="bg-slate-900" value="Unity3D">Unity3D</option>
-              <option className="bg-slate-900" value="Unreal">Unreal</option>
-              <option className="bg-slate-900" value="Godot">Godot</option>
-              <option className="bg-slate-900" value="Roblox Studio">Roblox Studio</option>
-            </select>
+              <select 
+                className="bg-transparent border rounded-full px-3 py-1.5 text-[9px] outline-none cursor-pointer"
+                style={{ borderColor: COLORS.accent1 }}
+                value={engineFilter}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setEngineFilter(e.target.value)}
+              >
+                <option className="bg-slate-900" value="All">All Engines</option>
+                <option className="bg-slate-900" value="Unity3D">Unity3D</option>
+                <option className="bg-slate-900" value="Unreal">Unreal</option>
+                <option className="bg-slate-900" value="Godot">Godot</option>
+                <option className="bg-slate-900" value="Roblox Studio">Roblox Studio</option>
+              </select>
 
-            <select 
-              className="bg-transparent border rounded-full px-3 py-1.5 text-[9px] outline-none cursor-pointer"
-              style={{ borderColor: COLORS.accent1 }}
-              value={priceSort}
-              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setPriceSort(e.target.value)}
-            >
-              <option className="bg-slate-900" value="Any">Any Price</option>
-              <option className="bg-slate-900" value="High to Low">Price: High to Low</option>
-              <option className="bg-slate-900" value="Low to High">Price: Low to High</option>
-            </select>
+              <select 
+                className="bg-transparent border rounded-full px-3 py-1.5 text-[9px] outline-none cursor-pointer"
+                style={{ borderColor: COLORS.accent1 }}
+                value={priceSort}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setPriceSort(e.target.value)}
+              >
+                <option className="bg-slate-900" value="Any">Any Price</option>
+                <option className="bg-slate-900" value="High to Low">Price: High to Low</option>
+                <option className="bg-slate-900" value="Low to High">Price: Low to High</option>
+              </select>
 
-            <div className="flex items-center gap-2 ml-2 flex-shrink-0">
-              <span className="text-[8px] text-gray-400 uppercase tracking-tighter">Price Range</span>
-              <input 
-                type="number" 
-                placeholder="Min"
-                className="w-14 px-1 py-1 rounded text-[9px] outline-none"
-                style={{ backgroundColor: COLORS.primary, border: `1px solid ${COLORS.accent1}` }}
-                value={minPrice}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleMinChange(e.target.value)}
-              />
-              <input 
-                type="number" 
-                placeholder="Max"
-                className="w-14 px-1 py-1 rounded text-[9px] outline-none"
-                style={{ backgroundColor: COLORS.primary, border: `1px solid ${COLORS.accent1}` }}
-                value={maxPrice}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleMaxChange(e.target.value)}
-              />
+              <div className="flex items-center gap-2 ml-2 flex-shrink-0">
+                <span className="text-[8px] text-gray-400 uppercase tracking-tighter">Price Range</span>
+                <input 
+                  type="number" 
+                  placeholder="Min"
+                  className="w-14 px-1 py-1 rounded text-[9px] outline-none"
+                  style={{ backgroundColor: COLORS.primary, border: `1px solid ${COLORS.accent1}` }}
+                  value={minPrice}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleMinChange(e.target.value)}
+                />
+                <input 
+                  type="number" 
+                  placeholder="Max"
+                  className="w-14 px-1 py-1 rounded text-[9px] outline-none"
+                  style={{ backgroundColor: COLORS.primary, border: `1px solid ${COLORS.accent1}` }}
+                  value={maxPrice}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleMaxChange(e.target.value)}
+                />
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* BODY / PROJECT CARDS */}
       <main className="max-w-[1800px] mx-auto px-4 py-8">
-        
+
+      {activeView === 'Profile' && (
+        <div className="max-w-4xl mx-auto">
+          <button onClick={() => setActiveView('Home')} className="mb-4 text-blue-400 text-xs">← Back to Store</button>
+          <div className="bg-[#2C394B] p-6 rounded-xl border border-[#334756]">
+            <h2 className="text-xl font-bold mb-4">Account Settings</h2>
+            <div className="space-y-2">
+              <p><strong>Username:</strong> {currentUser?.username}</p>
+              <p><strong>Email:</strong> {JSON.parse(localStorage.getItem('gtemp_user') || '{}').email || 'No email set'}</p>
+              <p><strong>Bio:</strong> Software Engineer & Full-stack Developer</p> 
+            </div>
+            {/* Updated Wallet Section in Profile View */}
+<div className="mt-6 p-4 bg-black/20 rounded-lg">
+  <div className="flex justify-between items-center mb-4">
+    <div>
+      <p className="text-[10px] uppercase text-gray-500 font-bold">Current Balance</p>
+      <p className="text-xl font-mono text-emerald-400">
+        ${currentUser?.walletBalance?.toFixed(2)}
+      </p>
+    </div>
+    <button 
+      onClick={() => setIsAddingFunds(!isAddingFunds)}
+      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded text-xs font-bold transition-colors"
+    >
+      {isAddingFunds ? 'Cancel' : 'Add Funds'}
+    </button>
+  </div>
+
+  {isAddingFunds && (
+    <div className="grid grid-cols-4 gap-2 animate-in fade-in slide-in-from-top-2">
+      {FUND_OPTIONS.map((amount) => (
+        <button
+          key={amount}
+          onClick={() => handleAddFunds(amount)}
+          className="py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded text-xs font-bold transition-all hover:scale-105 active:scale-95"
+        >
+          +${amount}
+        </button>
+      ))}
+    </div>
+  )}
+</div>
+          </div>
+        </div>
+      )}
+
+      {/* 2. UPLOADS STATISTICS VIEW */}
+      {activeView === 'Uploads' && (
+        <div className="max-w-4xl mx-auto">
+          <button onClick={() => setActiveView('Home')} className="mb-4 text-blue-400 text-xs">← Back to Store</button>
+          <div className="flex border-b border-white/10 mb-6">
+          <button 
+            onClick={() => setEditingProject(null)} 
+            className={`px-6 py-3 text-sm transition-all ${!editingProject ? 'border-b-2 border-white font-bold text-white' : 'text-gray-500 hover:text-gray-300'}`}
+          >
+            My Uploads
+          </button>
+          <button 
+            onClick={() => setEditingProject({} as Project)} 
+            className={`px-6 py-3 text-sm transition-all ${editingProject ? 'border-b-2 border-white font-bold text-white' : 'text-gray-500 hover:text-gray-300'}`}
+          >
+            Upload New
+          </button>
+        </div>
+
+          {!editingProject ? (
+            <div className="grid gap-2">
+              {projects.filter(p => p.owner?.username === currentUser?.username).map(p => (
+                <div key={p.id} className="p-4 bg-[#2C394B] flex justify-between items-center rounded border border-[#334756]">
+                  <span>{p.title} - ${p.price}</span>
+                  <button onClick={() => setEditingProject(p)} className="text-blue-400 text-xs">Edit Project</button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="bg-[#2C394B] p-6 rounded-xl border border-[#334756]">
+              <h3 className="font-bold mb-4">{editingProject.id ? 'Edit Project' : 'Upload New Project'}</h3>
+              <input className="w-full bg-black/20 p-2 mb-2 rounded border border-white/5" placeholder="Title" defaultValue={editingProject.title} />
+              <textarea className="w-full bg-black/20 p-2 mb-2 rounded border border-white/5 h-32" placeholder="Description" defaultValue={editingProject.description} />
+              <div className="flex gap-2">
+                <button className="px-4 py-2 bg-emerald-600 rounded">Save</button>
+                <button onClick={() => setEditingProject(null)} className="px-4 py-2 bg-red-600 rounded">Cancel</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 3. COLLECTION VIEWS (Wishlist/Reviewed/Purchased) */}
+      {activeView === 'Collection' && (
+        <div className="max-w-4xl mx-auto">
+          <button onClick={() => setActiveView('Home')} className="mb-4 text-blue-400 text-xs">← Back to Store</button>
+          <div className="flex border-b border-white/10 mb-6">
+            {['Wishlisted', 'Reviewed', 'Purchased'].map(t => (
+              <button 
+                key={t}
+                onClick={() => setCollectionTab(t)}
+                className={`px-6 py-3 text-sm transition-all ${collectionTab === t ? 'border-b-2 border-white font-bold' : 'text-gray-500'}`}
+              >
+                {t} Projects
+              </button>
+            ))}
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            <p className="text-gray-500 text-xs italic">Displaying your {collectionTab.toLowerCase()} items...</p>
+          </div>
+        </div>
+      )}
+      
+
+      {activeView === 'Home' && (
+        <>
         <div className="mb-6 lg:hidden flex justify-between items-center text-sm">
           <p className="text-gray-400"><span className="text-white font-bold">{resultCount}</span> matched criteria</p>
           <p className="text-gray-400">Displaying {filteredData.length} items</p>
         </div>
-
+        
         {/* Grid System - Scaled for high density & prevention of stretching */}
         {/* Mobile: 2-3 columns | Tablet: 3-4 columns | PC Wide: 4-6 columns */}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 md:gap-5">
@@ -717,6 +896,8 @@ const App: React.FC = () => {
             </button>
           </div>
         )}
+        </>
+      )}
       </main>
 
       <style dangerouslySetInnerHTML={{ __html: `
