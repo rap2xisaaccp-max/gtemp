@@ -123,7 +123,7 @@ const App: React.FC = () => {
   
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const API_URL = 'https://gtemp-backend.onrender.com/' ;
+  const API_URL = 'https://gtemp-backend.onrender.com' ;
 
   // Close dropdown on outside click
   useEffect(() => {
