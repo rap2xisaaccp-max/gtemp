@@ -104,6 +104,8 @@ const App: React.FC = () => {
   });
   const [formError, setFormError] = useState('');
 
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+
   //Profiles menu variables
   const [activeView, setActiveView] = useState<string>('Home');
   const [collectionTab, setCollectionTab] = useState<string>('Wishlisted');
@@ -248,6 +250,79 @@ const App: React.FC = () => {
     } catch (error) {
       setFormError("Server connection failed. Is the backend running?");
     }
+  };
+
+  const ProjectDetailsView: React.FC<{ project: Project; onBack: () => void }> = ({ project, onBack }) => {
+    return (
+      <div className="max-w-6xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-300">
+        <button onClick={onBack} className="mb-6 flex items-center gap-2 text-blue-400 hover:text-blue-300 transition-colors text-sm">
+          <X size={16} /> Back to Marketplace
+        </button>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Left Column: Media & Description */}
+          <div className="lg:col-span-2 space-y-6">
+            <div className="aspect-video rounded-2xl overflow-hidden bg-black/40 border border-white/5">
+              <img 
+                src={`https://picsum.photos/seed/${project.id}/800/450`} 
+                alt={project.title} 
+                className="w-full h-full object-cover"
+              />
+            </div>
+            
+            <div className="bg-[#2C394B] p-8 rounded-2xl border border-[#334756]">
+              <h2 className="text-2xl font-bold mb-4">Description</h2>
+              <p className="text-gray-300 leading-relaxed whitespace-pre-line">
+                {project.description}
+              </p>
+            </div>
+          </div>
+
+          {/* Right Column: Buy Box & Stats */}
+          <div className="space-y-4">
+            <div className="bg-[#2C394B] p-6 rounded-2xl border border-[#334756] sticky top-24">
+              <h1 className="text-3xl font-black mb-2">{project.title}</h1>
+              <p className="text-gray-400 mb-6 flex items-center gap-2">
+                by <span className="text-blue-400 font-bold">{project.owner?.username}</span>
+              </p>
+
+              <div className="flex items-center justify-between mb-6 p-4 bg-black/20 rounded-xl">
+                <span className="text-2xl font-mono font-bold text-emerald-400">
+                  {project.price === 0 ? 'FREE' : `$${project.price.toFixed(2)}`}
+                </span>
+                <div className="flex items-center gap-1 text-yellow-500">
+                  <Star size={18} fill="currentColor" />
+                  <span className="font-bold">{project.ratingAvg}</span>
+                </div>
+              </div>
+
+              <button className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-all shadow-lg active:scale-95 mb-3">
+                {project.price === 0 ? 'Download Now' : 'Purchase Project'}
+              </button>
+              
+              <button className="w-full py-3 bg-white/5 hover:bg-white/10 text-white font-bold rounded-xl border border-white/10 transition-all">
+                Add to Wishlist
+              </button>
+
+              <div className="mt-8 pt-6 border-t border-white/5 space-y-3">
+                <div className="flex justify-between text-xs">
+                  <span className="text-gray-500 uppercase font-bold">Engine</span>
+                  <span className="text-gray-200">{project.engine}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-gray-500 uppercase font-bold">Downloads</span>
+                  <span className="text-gray-200">{project.downloadCount.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-gray-500 uppercase font-bold">Released</span>
+                  <span className="text-gray-200">{new Date(project.releaseDate).toLocaleDateString()}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   const handleLogout = () => {
@@ -677,227 +752,235 @@ const App: React.FC = () => {
 
       {/* BODY / PROJECT CARDS */}
       <main className="max-w-[1800px] mx-auto px-4 py-8">
-
-      {activeView === 'Profile' && (
-        <div className="max-w-4xl mx-auto">
-          <button onClick={() => setActiveView('Home')} className="mb-4 text-blue-400 text-xs">← Back to Store</button>
-          <div className="bg-[#2C394B] p-6 rounded-xl border border-[#334756]">
-            <h2 className="text-xl font-bold mb-4">Account Settings</h2>
-            <div className="space-y-2">
-              <p><strong>Username:</strong> {currentUser?.username}</p>
-              <p><strong>Email:</strong> {JSON.parse(localStorage.getItem('gtemp_user') || '{}').email || 'No email set'}</p>
-              <p><strong>Bio:</strong> Software Engineer & Full-stack Developer</p> 
-            </div>
-            {/* Updated Wallet Section in Profile View */}
-<div className="mt-6 p-4 bg-black/20 rounded-lg">
-  <div className="flex justify-between items-center mb-4">
-    <div>
-      <p className="text-[10px] uppercase text-gray-500 font-bold">Current Balance</p>
-      <p className="text-xl font-mono text-emerald-400">
-        ${currentUser?.walletBalance?.toFixed(2)}
-      </p>
-    </div>
-    <button 
-      onClick={() => setIsAddingFunds(!isAddingFunds)}
-      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded text-xs font-bold transition-colors"
-    >
-      {isAddingFunds ? 'Cancel' : 'Add Funds'}
-    </button>
-  </div>
-
-  {isAddingFunds && (
-    <div className="grid grid-cols-4 gap-2 animate-in fade-in slide-in-from-top-2">
-      {FUND_OPTIONS.map((amount) => (
-        <button
-          key={amount}
-          onClick={() => handleAddFunds(amount)}
-          className="py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded text-xs font-bold transition-all hover:scale-105 active:scale-95"
-        >
-          +${amount}
-        </button>
-      ))}
-    </div>
-  )}
-</div>
-          </div>
-        </div>
-      )}
-
-      {/* 2. UPLOADS STATISTICS VIEW */}
-      {activeView === 'Uploads' && (
-        <div className="max-w-4xl mx-auto">
-          <button onClick={() => setActiveView('Home')} className="mb-4 text-blue-400 text-xs">← Back to Store</button>
-          <div className="flex border-b border-white/10 mb-6">
-          <button 
-            onClick={() => setEditingProject(null)} 
-            className={`px-6 py-3 text-sm transition-all ${!editingProject ? 'border-b-2 border-white font-bold text-white' : 'text-gray-500 hover:text-gray-300'}`}
-          >
-            My Uploads
-          </button>
-          <button 
-            onClick={() => setEditingProject({} as Project)} 
-            className={`px-6 py-3 text-sm transition-all ${editingProject ? 'border-b-2 border-white font-bold text-white' : 'text-gray-500 hover:text-gray-300'}`}
-          >
-            Upload New
-          </button>
-        </div>
-
-          {!editingProject ? (
-            <div className="grid gap-2">
-              {projects.filter(p => p.owner?.username === currentUser?.username).map(p => (
-                <div key={p.id} className="p-4 bg-[#2C394B] flex justify-between items-center rounded border border-[#334756]">
-                  <span>{p.title} - ${p.price}</span>
-                  <button onClick={() => setEditingProject(p)} className="text-blue-400 text-xs">Edit Project</button>
+        {selectedProject ? (
+          <ProjectDetailsView 
+            project={selectedProject} 
+            onBack={() => setSelectedProject(null)} 
+          />
+        ) : (
+          <>
+          {activeView === 'Profile' && (
+            <div className="max-w-4xl mx-auto">
+              <button onClick={() => setActiveView('Home')} className="mb-4 text-blue-400 text-xs">← Back to Store</button>
+              <div className="bg-[#2C394B] p-6 rounded-xl border border-[#334756]">
+                <h2 className="text-xl font-bold mb-4">Account Settings</h2>
+                <div className="space-y-2">
+                  <p><strong>Username:</strong> {currentUser?.username}</p>
+                  <p><strong>Email:</strong> {JSON.parse(localStorage.getItem('gtemp_user') || '{}').email || 'No email set'}</p>
+                  <p><strong>Bio:</strong> Software Engineer & Full-stack Developer</p> 
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="bg-[#2C394B] p-6 rounded-xl border border-[#334756]">
-              <h3 className="font-bold mb-4">{editingProject.id ? 'Edit Project' : 'Upload New Project'}</h3>
-              <input className="w-full bg-black/20 p-2 mb-2 rounded border border-white/5" placeholder="Title" defaultValue={editingProject.title} />
-              <textarea className="w-full bg-black/20 p-2 mb-2 rounded border border-white/5 h-32" placeholder="Description" defaultValue={editingProject.description} />
-              <div className="flex gap-2">
-                <button className="px-4 py-2 bg-emerald-600 rounded">Save</button>
-                <button onClick={() => setEditingProject(null)} className="px-4 py-2 bg-red-600 rounded">Cancel</button>
+                {/* Updated Wallet Section in Profile View */}
+                <div className="mt-6 p-4 bg-black/20 rounded-lg">
+                  <div className="flex justify-between items-center mb-4">
+                    <div>
+                      <p className="text-[10px] uppercase text-gray-500 font-bold">Current Balance</p>
+                      <p className="text-xl font-mono text-emerald-400">
+                        ${currentUser?.walletBalance?.toFixed(2)}
+                      </p>
+                    </div>
+                    <button 
+                      onClick={() => setIsAddingFunds(!isAddingFunds)}
+                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded text-xs font-bold transition-colors"
+                    >
+                      {isAddingFunds ? 'Cancel' : 'Add Funds'}
+                    </button>
+                  </div>
+                  {isAddingFunds && (
+                    <div className="grid grid-cols-4 gap-2 animate-in fade-in slide-in-from-top-2">
+                      {FUND_OPTIONS.map((amount) => (
+                        <button
+                          key={amount}
+                          onClick={() => handleAddFunds(amount)}
+                          className="py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded text-xs font-bold transition-all hover:scale-105 active:scale-95"
+                        >
+                          +${amount}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}
-        </div>
-      )}
 
-      {/* 3. COLLECTION VIEWS (Wishlist/Reviewed/Purchased) */}
-      {activeView === 'Collection' && (
-        <div className="max-w-4xl mx-auto">
-          <button onClick={() => setActiveView('Home')} className="mb-4 text-blue-400 text-xs">← Back to Store</button>
-          <div className="flex border-b border-white/10 mb-6">
-            {['Wishlisted', 'Reviewed', 'Purchased'].map(t => (
+          {/* 2. UPLOADS STATISTICS VIEW */}
+          {activeView === 'Uploads' && (
+            <div className="max-w-4xl mx-auto">
+              <button onClick={() => setActiveView('Home')} className="mb-4 text-blue-400 text-xs">← Back to Store</button>
+              <div className="flex border-b border-white/10 mb-6">
               <button 
-                key={t}
-                onClick={() => setCollectionTab(t)}
-                className={`px-6 py-3 text-sm transition-all ${collectionTab === t ? 'border-b-2 border-white font-bold' : 'text-gray-500'}`}
+                onClick={() => setEditingProject(null)} 
+                className={`px-6 py-3 text-sm transition-all ${!editingProject ? 'border-b-2 border-white font-bold text-white' : 'text-gray-500 hover:text-gray-300'}`}
               >
-                {t} Projects
+                My Uploads
               </button>
-            ))}
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            <p className="text-gray-500 text-xs italic">Displaying your {collectionTab.toLowerCase()} items...</p>
-          </div>
-        </div>
-      )}
-      
+              <button 
+                onClick={() => setEditingProject({} as Project)} 
+                className={`px-6 py-3 text-sm transition-all ${editingProject ? 'border-b-2 border-white font-bold text-white' : 'text-gray-500 hover:text-gray-300'}`}
+              >
+                Upload New
+              </button>
+            </div>
 
-      {activeView === 'Home' && (
-        <>
-        <div className="mb-6 lg:hidden flex justify-between items-center text-sm">
-          <p className="text-gray-400"><span className="text-white font-bold">{resultCount}</span> matched criteria</p>
-          <p className="text-gray-400">Displaying {filteredData.length} items</p>
-        </div>
-        
-        {/* Grid System - Scaled for high density & prevention of stretching */}
-        {/* Mobile: 2-3 columns | Tablet: 3-4 columns | PC Wide: 4-6 columns */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 md:gap-5">
-          {filteredData.map((project) => (
-            <div 
-              key={project.id}
-              className="group rounded-xl overflow-hidden transition-all hover:-translate-y-1.5 hover:shadow-2xl flex flex-col h-full transform-gpu"
-              style={{ 
-                backgroundColor: COLORS.secondary, 
-                border: `1px solid ${COLORS.accent1}`,
-                fontSize: '0.85rem' // Scale down content slightly to fit more
-              }}
-            >
-              {/* Image Preview - Fixed aspect ratio to prevent stretching */}
-              <div className="relative aspect-video bg-slate-800 overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent z-10 opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-2">
-                  <button className="w-full py-1.5 bg-white text-black font-bold text-[10px] rounded-md transform translate-y-1 group-hover:translate-y-0 transition-transform">
-                    View
+              {!editingProject ? (
+                <div className="grid gap-2">
+                  {projects.filter(p => p.owner?.username === currentUser?.username).map(p => (
+                    <div key={p.id} className="p-4 bg-[#2C394B] flex justify-between items-center rounded border border-[#334756]">
+                      <span>{p.title} - ${p.price}</span>
+                      <button onClick={() => setEditingProject(p)} className="text-blue-400 text-xs">Edit Project</button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-[#2C394B] p-6 rounded-xl border border-[#334756]">
+                  <h3 className="font-bold mb-4">{editingProject.id ? 'Edit Project' : 'Upload New Project'}</h3>
+                  <input className="w-full bg-black/20 p-2 mb-2 rounded border border-white/5" placeholder="Title" defaultValue={editingProject.title} />
+                  <textarea className="w-full bg-black/20 p-2 mb-2 rounded border border-white/5 h-32" placeholder="Description" defaultValue={editingProject.description} />
+                  <div className="flex gap-2">
+                    <button className="px-4 py-2 bg-emerald-600 rounded">Save</button>
+                    <button onClick={() => setEditingProject(null)} className="px-4 py-2 bg-red-600 rounded">Cancel</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 3. COLLECTION VIEWS (Wishlist/Reviewed/Purchased) */}
+          {activeView === 'Collection' && (
+            <div className="max-w-4xl mx-auto">
+              <button onClick={() => setActiveView('Home')} className="mb-4 text-blue-400 text-xs">← Back to Store</button>
+              <div className="flex border-b border-white/10 mb-6">
+                {['Wishlisted', 'Reviewed', 'Purchased'].map(t => (
+                  <button 
+                    key={t}
+                    onClick={() => setCollectionTab(t)}
+                    className={`px-6 py-3 text-sm transition-all ${collectionTab === t ? 'border-b-2 border-white font-bold' : 'text-gray-500'}`}
+                  >
+                    {t} Projects
                   </button>
-                </div>
-                <img 
-                  src={`https://picsum.photos/seed/${project.id}/400/225`} 
-                  alt={project.title}
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                />
-                <div className="absolute top-2 right-2 z-20 px-1.5 py-0.5 rounded bg-black/60 backdrop-blur-md text-[9px] font-bold uppercase tracking-wider">
-                  <HighlightedText text={project.engine.split(' ')[0]} highlight={searchQuery} /> {/* Shorten engine name for small cards */}
-                </div>
+                ))}
               </div>
-
-              {/* Card Content - Scaled down */}
-              <div className="p-3 flex flex-col flex-grow">
-                <div className="flex justify-between items-start mb-0.5">
-                  <h3 className="font-bold text-sm leading-tight group-hover:text-blue-400 transition-colors line-clamp-1" title={project.title}>
-                    <HighlightedText text={project.title} highlight={searchQuery} />
-                  </h3>
-                  <div className="text-[11px] font-bold ml-1 flex-shrink-0">
-                    {project.price === 0 ? (
-                      <span className="text-emerald-400">FREE</span>
-                    ) : (
-                      <span style={{ color: COLORS.accent2 }}>${project.price.toFixed(0)}</span>
-                    )}
-                  </div>
-                </div>
-                
-                {/* App.tsx - Updated Line ~535 */}
-                <p className="text-[10px] text-gray-400 mb-1.5">
-                  by <span className="text-gray-300 hover:underline cursor-pointer">
-                    {/* Access owner.username instead of project.ownerId */}
-                    <HighlightedText text={project.owner?.username || 'Unknown'} highlight={searchQuery} />
-                  </span>
-                </p>
-                                
-                <p className="text-[10px] text-gray-400 line-clamp-2 mb-3 leading-tight opacity-80">
-                  {project.description}
-                </p>
-
-                <div className="mt-auto">
-                  <div className="flex items-center gap-3 text-[10px] text-gray-400 mb-2 pb-2 border-b border-white/5">
-                    <div className="flex items-center gap-1">
-                      <Download size={10} className="text-gray-500" />
-                      {project.downloadCount}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Star size={10} className="text-yellow-500 fill-yellow-500" />
-                      {project.ratingAvg}
-                      <span className="text-gray-500 text-[9px]">({project.ratingCount})</span>
-                    </div>
-                  </div>
-
-                  {/* App.tsx - Line ~550 */}
-                  <div className="flex flex-wrap gap-1 mb-1">
-                    {project.genres?.map((g, i) => ( 
-                      <span key={i} className="px-1.5 py-0.5 bg-white/5 rounded text-[9px] border border-white/10 whitespace-nowrap">
-                        <HighlightedText text={g} highlight={searchQuery} />
-                      </span>
-                    ))}
-                  </div>
-                </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                <p className="text-gray-500 text-xs italic">Displaying your {collectionTab.toLowerCase()} items...</p>
               </div>
             </div>
-          ))}
-        </div>
+          )}
+      
 
-        {filteredData.length === 0 && (
-          <div className="py-32 text-center">
-            <Search size={48} className="mx-auto mb-4 opacity-20" />
-            <h2 className="text-xl font-bold opacity-50">No projects found</h2>
-            <p className="text-gray-500 mt-2">Try adjusting your filters or search keywords.</p>
-            <button 
-              onClick={() => {
-                setSearchQuery('');
-                setEngineFilter('All');
-                setMinPrice(0);
-                setMaxPrice(1000);
-              }}
-              className="mt-6 px-6 py-2 rounded-full border border-white/20 hover:bg-white/5 transition-all"
-            >
-              Reset All Filters
-            </button>
-          </div>
+          {activeView === 'Home' && (
+            <>
+            <div className="mb-6 lg:hidden flex justify-between items-center text-sm">
+              <p className="text-gray-400"><span className="text-white font-bold">{resultCount}</span> matched criteria</p>
+              <p className="text-gray-400">Displaying {filteredData.length} items</p>
+            </div>
+            
+            {/* Grid System - Scaled for high density & prevention of stretching */}
+            {/* Mobile: 2-3 columns | Tablet: 3-4 columns | PC Wide: 4-6 columns */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 md:gap-5">
+              {filteredData.map((project) => (
+                <div 
+                  key={project.id}
+                  onClick={() => setSelectedProject(project)}
+                  className="group rounded-xl overflow-hidden transition-all hover:-translate-y-1.5 hover:shadow-2xl flex flex-col h-full transform-gpu"
+                  style={{ 
+                    backgroundColor: COLORS.secondary, 
+                    border: `1px solid ${COLORS.accent1}`,
+                    fontSize: '0.85rem' // Scale down content slightly to fit more
+                  }}
+                >
+                  {/* Image Preview - Fixed aspect ratio to prevent stretching */}
+                  <div className="relative aspect-video bg-slate-800 overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent z-10 opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-2">
+                      <button className="w-full py-1.5 bg-white text-black font-bold text-[10px] rounded-md transform translate-y-1 group-hover:translate-y-0 transition-transform">
+                        View
+                      </button>
+                    </div>
+                    <img 
+                      src={`https://picsum.photos/seed/${project.id}/400/225`} 
+                      alt={project.title}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                    <div className="absolute top-2 right-2 z-20 px-1.5 py-0.5 rounded bg-black/60 backdrop-blur-md text-[9px] font-bold uppercase tracking-wider">
+                      <HighlightedText text={project.engine.split(' ')[0]} highlight={searchQuery} /> {/* Shorten engine name for small cards */}
+                    </div>
+                  </div>
+
+                  {/* Card Content - Scaled down */}
+                  <div className="p-3 flex flex-col flex-grow">
+                    <div className="flex justify-between items-start mb-0.5">
+                      <h3 className="font-bold text-sm leading-tight group-hover:text-blue-400 transition-colors line-clamp-1" title={project.title}>
+                        <HighlightedText text={project.title} highlight={searchQuery} />
+                      </h3>
+                      <div className="text-[11px] font-bold ml-1 flex-shrink-0">
+                        {project.price === 0 ? (
+                          <span className="text-emerald-400">FREE</span>
+                        ) : (
+                          <span style={{ color: COLORS.accent2 }}>${project.price.toFixed(0)}</span>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* App.tsx - Updated Line ~535 */}
+                    <p className="text-[10px] text-gray-400 mb-1.5">
+                      by <span className="text-gray-300 hover:underline cursor-pointer">
+                        {/* Access owner.username instead of project.ownerId */}
+                        <HighlightedText text={project.owner?.username || 'Unknown'} highlight={searchQuery} />
+                      </span>
+                    </p>
+                                    
+                    <p className="text-[10px] text-gray-400 line-clamp-2 mb-3 leading-tight opacity-80">
+                      {project.description}
+                    </p>
+
+                    <div className="mt-auto">
+                      <div className="flex items-center gap-3 text-[10px] text-gray-400 mb-2 pb-2 border-b border-white/5">
+                        <div className="flex items-center gap-1">
+                          <Download size={10} className="text-gray-500" />
+                          {project.downloadCount}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Star size={10} className="text-yellow-500 fill-yellow-500" />
+                          {project.ratingAvg}
+                          <span className="text-gray-500 text-[9px]">({project.ratingCount})</span>
+                        </div>
+                      </div>
+
+                      {/* App.tsx - Line ~550 */}
+                      <div className="flex flex-wrap gap-1 mb-1">
+                        {project.genres?.map((g, i) => ( 
+                          <span key={i} className="px-1.5 py-0.5 bg-white/5 rounded text-[9px] border border-white/10 whitespace-nowrap">
+                            <HighlightedText text={g} highlight={searchQuery} />
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {filteredData.length === 0 && (
+              <div className="py-32 text-center">
+                <Search size={48} className="mx-auto mb-4 opacity-20" />
+                <h2 className="text-xl font-bold opacity-50">No projects found</h2>
+                <p className="text-gray-500 mt-2">Try adjusting your filters or search keywords.</p>
+                <button 
+                  onClick={() => {
+                    setSearchQuery('');
+                    setEngineFilter('All');
+                    setMinPrice(0);
+                    setMaxPrice(1000);
+                  }}
+                  className="mt-6 px-6 py-2 rounded-full border border-white/20 hover:bg-white/5 transition-all"
+                >
+                  Reset All Filters
+                </button>
+              </div>
+            )}
+            </>
+          )}
+          </>
         )}
-        </>
-      )}
       </main>
 
       <style dangerouslySetInnerHTML={{ __html: `
