@@ -196,6 +196,37 @@ const App: React.FC = () => {
     }
   }, []); // Empty array means this runs once when the app starts
 
+  useEffect(() => {
+  const handleHashNavigation = () => {
+    const hash = window.location.hash;
+    if (hash.startsWith('#/project/')) {
+      const projectId = hash.replace('#/project/', '');
+      // Find matching asset within current loaded state
+      const match = projects.find(p => String(p.id) === projectId);
+      if (match) {
+        setSelectedProject(match);
+      }
+    } else {
+      // Clear view state if no valid routing pattern is detected
+      setSelectedProject(null);
+    }
+  };
+
+  // Trigger router calculation whenever projects array updates or window location fires
+  handleHashNavigation();
+
+  window.addEventListener('hashchange', handleHashNavigation);
+  return () => window.removeEventListener('hashchange', handleHashNavigation);
+}, [projects]);
+
+const navigateToProject = (id: string) => {
+  window.location.hash = `#/project/${id}`;
+};
+
+const clearProjectNavigation = () => {
+  window.location.hash = '';
+};
+
   const handleAuthAction = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError('');
@@ -560,7 +591,7 @@ const App: React.FC = () => {
       >
         {/* HEADER */}
         <header className="sticky top-0 z-50 shadow-xl" style={{ backgroundColor: COLORS.secondary }}>
-          <div className="mmax-w-[1800px] mx-auto px-4 h-11 flex items-center justify-between gap-3">
+          <div className="max-w-[1800px] mx-auto px-4 h-11 flex items-center justify-between gap-3">
             
             {/* Logo Section - Hidden on Mobile Width (< 640px) */}
             <div className="hidden sm:flex items-center gap-2 cursor-pointer flex-shrink-0 transition-all">
@@ -570,7 +601,7 @@ const App: React.FC = () => {
 
             {/* Search Box Section - Centered and Expandable */}
             <div className="flex-grow flex justify-center min-w-0">
-              {activeView === 'Home' && (
+              {activeView === 'Home' && !selectedProject && (
                 <div className="w-full max-w-xl relative group">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 w-3.5 h-3.5 group-focus-within:text-white" />
                   <input 
@@ -604,7 +635,7 @@ const App: React.FC = () => {
                 </div>
               ) : (
                 <>
-                  {isLoggedIn && activeView === 'Home' && (
+                  {isLoggedIn && activeView === 'Home' && !selectedProject && (
                     <div className="text-[10px] font-medium text-gray-400 hidden lg:block whitespace-nowrap">
                       <span className="text-white font-bold">{resultCount}</span> Results
                     </div>
@@ -652,6 +683,7 @@ const App: React.FC = () => {
                                 setActiveView('Home');
                               } else {
                                 // Use the nullish coalescing operator (??) to provide 'Home' as a fallback
+                                clearProjectNavigation();
                                 setActiveView(item.view ?? 'Home'); 
                                 
                                 // Check if item.tab exists before updating the collection tab
@@ -677,7 +709,7 @@ const App: React.FC = () => {
         </header>
 
         {/* SUB HEADER / FILTERS */}
-        {activeView === 'Home' && (
+        {activeView === 'Home' && !selectedProject && (
           <div 
             className={`
               transition-all duration-200 ease-in-out border-b border-white/5 overflow-hidden
@@ -755,7 +787,7 @@ const App: React.FC = () => {
         {selectedProject ? (
           <ProjectDetailsView 
             project={selectedProject} 
-            onBack={() => setSelectedProject(null)} 
+            onBack={clearProjectNavigation}
           />
         ) : (
           <>
@@ -880,7 +912,7 @@ const App: React.FC = () => {
               {filteredData.map((project) => (
                 <div 
                   key={project.id}
-                  onClick={() => setSelectedProject(project)}
+                  onClick={() => navigateToProject(project.id)}
                   className="group rounded-xl overflow-hidden transition-all hover:-translate-y-1.5 hover:shadow-2xl flex flex-col h-full transform-gpu"
                   style={{ 
                     backgroundColor: COLORS.secondary, 
