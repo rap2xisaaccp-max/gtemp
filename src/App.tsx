@@ -591,7 +591,7 @@ const clearProjectNavigation = () => {
       >
         {/* HEADER */}
         <header className="sticky top-0 z-50 shadow-xl" style={{ backgroundColor: COLORS.secondary }}>
-          <div className="mmax-w-[1800px] mx-auto px-4 h-11 flex items-center justify-between gap-3">
+          <div className="max-w-[1800px] mx-auto px-4 h-11 flex items-center justify-between gap-3">
             
             {/* Logo Section - Hidden on Mobile Width (< 640px) */}
             <div className="hidden sm:flex items-center gap-2 cursor-pointer flex-shrink-0 transition-all">
@@ -601,7 +601,7 @@ const clearProjectNavigation = () => {
 
             {/* Search Box Section - Centered and Expandable */}
             <div className="flex-grow flex justify-center min-w-0">
-              {activeView === 'Home' && (
+              {activeView === 'Home' && !selectedProject && (
                 <div className="w-full max-w-xl relative group">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 w-3.5 h-3.5 group-focus-within:text-white" />
                   <input 
@@ -635,7 +635,7 @@ const clearProjectNavigation = () => {
                 </div>
               ) : (
                 <>
-                  {isLoggedIn && activeView === 'Home' && (
+                  {isLoggedIn && activeView === 'Home' && !selectedProject && (
                     <div className="text-[10px] font-medium text-gray-400 hidden lg:block whitespace-nowrap">
                       <span className="text-white font-bold">{resultCount}</span> Results
                     </div>
@@ -683,6 +683,7 @@ const clearProjectNavigation = () => {
                                 setActiveView('Home');
                               } else {
                                 // Use the nullish coalescing operator (??) to provide 'Home' as a fallback
+                                clearProjectNavigation();
                                 setActiveView(item.view ?? 'Home'); 
                                 
                                 // Check if item.tab exists before updating the collection tab
@@ -708,7 +709,7 @@ const clearProjectNavigation = () => {
         </header>
 
         {/* SUB HEADER / FILTERS */}
-        {activeView === 'Home' && (
+        {activeView === 'Home' && !selectedProject && (
           <div 
             className={`
               transition-all duration-200 ease-in-out border-b border-white/5 overflow-hidden
