@@ -163,7 +163,7 @@ const App: React.FC = () => {
   const [isHeaderHovered, setIsHeaderHovered] = useState<boolean>(false);
   
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const API_URL = 'https://gtemp-backend.onrender.com/'; // Change this to your backend URL if different;
+  const API_URL = 'https://gtemp-backend.onrender.com'; // Change this to your backend URL if different;
   // Close dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
