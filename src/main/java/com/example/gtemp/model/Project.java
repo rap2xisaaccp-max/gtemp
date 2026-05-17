@@ -13,8 +13,8 @@ public class Project {
     private UUID id;
 
     @ManyToOne(fetch = FetchType.EAGER)
-@JoinColumn(name = "owner_id", referencedColumnName = "id")
-private Profile owner;
+    @JoinColumn(name = "owner_id", referencedColumnName = "id")
+    private Profile owner;
 
     @Column(nullable = false)
     private String title;

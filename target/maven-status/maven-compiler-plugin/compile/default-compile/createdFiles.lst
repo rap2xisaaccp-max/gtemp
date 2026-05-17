@@ -2,8 +2,11 @@ com\example\gtemp\repository\ProfileRepository.class
 com\example\gtemp\repository\CommentRepository.class
 com\example\gtemp\repository\ProjectRepository.class
 com\example\gtemp\controller\CommentController.class
+com\example\gtemp\controller\ProjectPurchaseController.class
+com\example\gtemp\model\ProjectPurchase.class
 com\example\gtemp\model\ProjectScreenshot.class
 com\example\gtemp\config\WebConfig.class
+com\example\gtemp\dto\PurchaseRequest.class
 com\example\gtemp\model\Project.class
 com\example\gtemp\GtempApplication.class
 com\example\gtemp\controller\AuthController.class
@@ -11,5 +14,6 @@ com\example\gtemp\model\LoginRequest.class
 com\example\gtemp\model\Profile.class
 com\example\gtemp\model\Comment.class
 com\example\gtemp\model\ProjectFile.class
+com\example\gtemp\repository\PurchaseRepository.class
 com\example\gtemp\controller\HealthCheckController.class
 com\example\gtemp\controller\ProjectController.class

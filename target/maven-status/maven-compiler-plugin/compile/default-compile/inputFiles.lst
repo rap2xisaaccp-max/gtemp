@@ -1,10 +1,14 @@
+C:\Users\rap2x\gtemp\src\main\java\com\example\gtemp\dto\PurchaseRequest.java
 C:\Users\rap2x\gtemp\src\main\java\com\example\gtemp\controller\AuthController.java
 C:\Users\rap2x\gtemp\src\main\java\com\example\gtemp\model\Comment.java
+C:\Users\rap2x\gtemp\src\main\java\com\example\gtemp\model\ProjectPurchase.java
 C:\Users\rap2x\gtemp\src\main\java\com\example\gtemp\controller\ProjectController.java
 C:\Users\rap2x\gtemp\src\main\java\com\example\gtemp\repository\ProfileRepository.java
 C:\Users\rap2x\gtemp\src\main\java\com\example\gtemp\model\ProjectFile.java
 C:\Users\rap2x\gtemp\src\main\java\com\example\gtemp\GtempApplication.java
 C:\Users\rap2x\gtemp\src\main\java\com\example\gtemp\model\LoginRequest.java
+C:\Users\rap2x\gtemp\src\main\java\com\example\gtemp\repository\PurchaseRepository.java
+C:\Users\rap2x\gtemp\src\main\java\com\example\gtemp\controller\ProjectPurchaseController.java
 C:\Users\rap2x\gtemp\src\main\java\com\example\gtemp\repository\ProjectRepository.java
 C:\Users\rap2x\gtemp\src\main\java\com\example\gtemp\config\WebConfig.java
 C:\Users\rap2x\gtemp\src\main\java\com\example\gtemp\repository\CommentRepository.java
