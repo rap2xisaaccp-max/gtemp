@@ -163,7 +163,7 @@ const App: React.FC = () => {
   const [isHeaderHovered, setIsHeaderHovered] = useState<boolean>(false);
   
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const API_URL = 'https://gtemp-backend.onrender.com/'; // Change this to your backend URL if different;
+  const API_URL = 'https://gtemp-backend.onrender.com'; // Change this to your backend URL if different;
   // Close dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -263,13 +263,13 @@ const App: React.FC = () => {
     return () => window.removeEventListener('hashchange', handleHashNavigation);
   }, [projects.length]); // Track item array allocation length rather than variable updates
 
-const navigateToProject = (id: string) => {
-  window.location.hash = `#/project/${id}`;
-};
+  const navigateToProject = (id: string) => {
+    window.location.hash = `#/project/${id}`;
+  };
 
-const clearProjectNavigation = () => {
-  window.location.hash = '';
-};
+  const clearProjectNavigation = () => {
+    window.location.hash = '';
+  };
 
   const handleAuthAction = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -374,6 +374,31 @@ const clearProjectNavigation = () => {
   const [isPurchased, setIsPurchased] = useState(false);
   const [buying, setBuying] = useState(false);
 
+  // Check if the user already owns this project on mount or if they are the owner
+  // App.tsx -> Inside ProjectDetailsView
+useEffect(() => {
+  if (!currentUser) return;
+  
+  if (currentUser.username === project.owner?.username) {
+    setIsPurchased(true);
+    return;
+  }
+
+  const checkOwnership = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/projects/${project.id}/check-ownership?username=${currentUser.username}`);
+      if (response.ok) {
+        const owned = await response.json(); // Returns true or false from backend
+        setIsPurchased(owned); // Updates UI context state
+      }
+    } catch (error) {
+      console.error("Ownership confirmation failed:", error);
+    }
+  };
+
+  checkOwnership();
+}, [project.id, currentUser]);
+
   // Structural mapping supporting internal files tab
   const projectFiles: ProjectFile[] = useMemo(() => [
     {
@@ -394,10 +419,22 @@ const clearProjectNavigation = () => {
     }
   ], [project.title, project.price]);
 
+  // CORE DOWNLOAD INTERCEPTOR
   const handleDownload = (fileId: string) => {
-    if (project.price > 0 && !isPurchased) {
-      alert("You must purchase the package to download the core files.");
+    if (!isLoggedIn) {
+      setAuthModal({ isOpen: true, tab: 'login' });
       return;
+    }
+
+    if (project.price > 0 && !isPurchased) {
+      alert("You must purchase a licensing plan to download these build files.");
+      return;
+    }
+    
+    // Free download validation check
+    if (project.price === 0 && !isPurchased) {
+      const confirmFree = window.confirm(`Would you like to register and download "${project.title}" for Free?`);
+      if (!confirmFree) return;
     }
     
     setDownloadingFileId(fileId);
@@ -409,13 +446,82 @@ const clearProjectNavigation = () => {
           clearInterval(interval);
           setTimeout(() => {
             setDownloadingFileId(null);
-            alert("Download finished successfully!");
+            alert("File transmission complete. Package downloaded successfully!");
           }, 500);
           return 100;
         }
         return prev + 10;
       });
-    }, 200);
+    }, 150);
+  };
+
+  // TRANSACTION HANDLER FOR PURCHASES
+  const handlePurchaseAndCheckout = async () => {
+    if (!isLoggedIn) {
+      setAuthModal({ isOpen: true, tab: 'login' });
+      return;
+    }
+
+    if (!currentUser) return;
+
+    // Guard Clause: Prevent buying your own asset
+    if (currentUser.username === project.owner?.username) {
+      alert("You are registered as the developer of this asset package.");
+      return;
+    }
+
+    // Guard Clause: Balance check
+    const currentBalance = currentUser.walletBalance || 0;
+    if (currentBalance < project.price) {
+      alert(`Insufficient funds. Your balance is $${currentBalance.toFixed(2)}, but this asset requires $${project.price.toFixed(2)}.`);
+      setActiveView('Profile'); // Redirect to profile context to top up funds
+      return;
+    }
+
+    const confirmCheckout = window.confirm(`Authorize payment of $${project.price.toFixed(2)} for "${project.title}"? This will debit your wallet.`);
+    if (!confirmCheckout) return;
+
+    setBuying(true);
+
+    try {
+      const response = await fetch(`${API_URL}/api/projects/${project.id}/purchase`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          buyerUsername: currentUser.username,
+          sellerUsername: project.owner?.username,
+          amount: project.price
+        }),
+      });
+
+      if (response.ok) {
+        // Calculate new balance
+        const updatedBalance = currentBalance - project.price;
+        
+        // 1. Mutate Global Authentication Context States
+        const updatedUser = { ...currentUser, walletBalance: updatedBalance };
+        setCurrentUser(updatedUser);
+
+        // 2. Synchronize Local Storage Configuration
+        const localData = JSON.parse(localStorage.getItem('gtemp_user') || '{}');
+        localStorage.setItem('gtemp_user', JSON.stringify({ 
+          ...localData, 
+          walletBalance: updatedBalance 
+        }));
+
+        setIsPurchased(true);
+        alert(`Transaction Approved! $${project.price.toFixed(2)} has been successfully transferred to @${project.owner?.username || 'owner'}.`);
+        setActiveSubTab('files'); // Instantly shift focus to download portal
+      } else {
+        const errorText = await response.text();
+        alert("Transaction Refused by Server: " + errorText);
+      }
+    } catch (error) {
+      console.error("Network fault during payment routing:", error);
+      alert("Could not connect to secure processing server. Verify backend connectivity.");
+    } finally {
+      setBuying(false);
+    }
   };
 
   // Handle posting top-level comments or replies directly to database
@@ -424,10 +530,9 @@ const clearProjectNavigation = () => {
     const content = parentId ? replyText : newComment;
     if (!content.trim()) return;
 
-    // Build matching payload for Spring Boot controller
     const payload = {
       projectId: project.id,
-      userId: currentUser?.username ? "00000000-0000-0000-0000-000000000000" : "00000000-0000-0000-0000-000000000000", // Default fallback fallback UUID
+      userId: currentUser?.username || "Anonymous",
       content: content,
       parent: parentId ? { id: parentId } : null
     };
@@ -446,7 +551,7 @@ const clearProjectNavigation = () => {
         } else {
           setNewComment('');
         }
-        fetchComments(); // Refresh comment tree layout
+        fetchComments();
       } else {
         alert("Could not post comment to remote endpoint.");
       }
@@ -469,7 +574,6 @@ const clearProjectNavigation = () => {
       className="group relative transition-all" 
       style={{ marginLeft: depth > 0 ? `${Math.min(depth * 20, 80)}px` : '0px' }}
     >
-      {/* Visual indicator lines for inner nested threads */}
       {depth > 0 && (
         <div className="absolute top-0 bottom-0 border-l border-white/10" style={{ left: '-12px' }} />
       )}
@@ -478,9 +582,9 @@ const clearProjectNavigation = () => {
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-[10px] font-bold text-white uppercase">
-              U
+              {comment.userId.charAt(0)}
             </div>
-            <span className="text-xs font-bold text-gray-300">User_{comment.userId.substring(0, 4)}</span>
+            <span className="text-xs font-bold text-gray-300">{comment.userId}</span>
             <span className="text-[10px] text-gray-500 font-mono">
               {new Date(comment.createdAt).toLocaleDateString()}
             </span>
@@ -489,7 +593,6 @@ const clearProjectNavigation = () => {
 
         <p className="text-gray-300 text-sm whitespace-pre-wrap pl-2 leading-relaxed">{comment.content}</p>
         
-        {/* Thread Action Controls */}
         <div className="flex items-center gap-4 mt-2 pl-2">
           <button
             type="button"
@@ -501,7 +604,6 @@ const clearProjectNavigation = () => {
           </button>
         </div>
 
-        {/* Reply Submission Drawer */}
         {replyingToId === comment.id && (
           <div className="mt-3 pl-2 border-l border-blue-500/40">
             <textarea
@@ -530,7 +632,6 @@ const clearProjectNavigation = () => {
         )}
       </div>
 
-      {/* Recursive Deep Interator */}
       {comment.replies && comment.replies.map((reply) => (
         <RenderCommentNode key={reply.id} comment={reply} depth={depth + 1} />
       ))}
@@ -677,7 +778,7 @@ const clearProjectNavigation = () => {
                       <span>Downloading ({downloadProgress}%)</span>
                     ) : (
                       <>
-                        <Download size={14} /> Download
+                        <Download size={14} /> {project.price === 0 || isPurchased ? 'Download' : 'Locked'}
                       </>
                     )}
                   </button>
@@ -688,7 +789,6 @@ const clearProjectNavigation = () => {
 
           {activeSubTab === 'comments' && (
             <div className="space-y-6">
-              {/* Top-Level Base Comment Post Form */}
               <form onSubmit={(e) => handlePostComment(e, null)} className="bg-[#2C394B] border border-[#334756] p-5 rounded-xl space-y-4">
                 <h3 className="font-bold text-sm text-gray-200 flex items-center gap-2">
                   <MessageSquare size={16} className="text-blue-400" /> Discussion Board
@@ -704,7 +804,6 @@ const clearProjectNavigation = () => {
                 </button>
               </form>
 
-              {/* Recursive Iteration Output Track */}
               <div className="space-y-4 max-h-[600px] overflow-y-auto pr-1">
                 {commentList.length === 0 ? (
                   <p className="text-center py-8 text-xs text-gray-500 font-mono">No discussions found on this asset yet.</p>
@@ -745,24 +844,17 @@ const clearProjectNavigation = () => {
             </div>
 
             <div className="space-y-2">
-              <button 
-                onClick={() => {
-                  if (project.price > 0 && !isPurchased) {
-                    setBuying(true);
-                    setTimeout(() => {
-                      setBuying(false);
-                      setIsPurchased(true);
-                      alert(`Mock Success: Authorized transaction for ${project.title}!`);
-                    }, 1000);
-                  } else {
-                    alert("Initializing secure file stream configuration...");
-                  }
-                }} 
-                disabled={buying}
-                className="w-full py-3.5 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 text-white text-sm font-bold rounded-xl transition-all shadow-lg transform active:scale-[0.98]"
-              >
-                {buying ? 'Processing Setup...' : (project.price === 0 || isPurchased ? 'Download Package Asset' : 'Purchase Licensing')}
-              </button>
+              {project.price === 0 || isPurchased ? (
+                <button onClick={() => setActiveSubTab('files')} className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold rounded-xl transition-all shadow-lg transform active:scale-[0.98]">
+                    Go to Download Files
+                  </button>
+                ) : (
+                  <button onClick={handlePurchaseAndCheckout} className="w-full py-3.5 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 text-white text-sm font-bold rounded-xl transition-all shadow-lg transform active:scale-[0.98]">
+                    {buying ? 'Processing Payment...' : `Purchase with Wallet ($${project.price.toFixed(2)})`}
+                  </button>
+                )}
+                
+              
               <button onClick={() => setIsWishlisted(!isWishlisted)} className={`w-full py-2.5 text-xs font-bold rounded-xl border transition-all flex items-center justify-center gap-2 ${isWishlisted ? 'bg-red-500/10 border-red-500 text-red-400' : 'bg-white/5 border-white/10 hover:bg-white/10 text-white'}`} >
                 <Bookmark size={14} fill={isWishlisted ? "currentColor" : "none"} /> {isWishlisted ? 'Wishlisted' : 'Add to Catalog Wishlist'}
               </button>
