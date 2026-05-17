@@ -196,6 +196,37 @@ const App: React.FC = () => {
     }
   }, []); // Empty array means this runs once when the app starts
 
+  useEffect(() => {
+  const handleHashNavigation = () => {
+    const hash = window.location.hash;
+    if (hash.startsWith('#/project/')) {
+      const projectId = hash.replace('#/project/', '');
+      // Find matching asset within current loaded state
+      const match = projects.find(p => String(p.id) === projectId);
+      if (match) {
+        setSelectedProject(match);
+      }
+    } else {
+      // Clear view state if no valid routing pattern is detected
+      setSelectedProject(null);
+    }
+  };
+
+  // Trigger router calculation whenever projects array updates or window location fires
+  handleHashNavigation();
+
+  window.addEventListener('hashchange', handleHashNavigation);
+  return () => window.removeEventListener('hashchange', handleHashNavigation);
+}, [projects]);
+
+const navigateToProject = (id: string) => {
+  window.location.hash = `#/project/${id}`;
+};
+
+const clearProjectNavigation = () => {
+  window.location.hash = '';
+};
+
   const handleAuthAction = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError('');
@@ -755,7 +786,7 @@ const App: React.FC = () => {
         {selectedProject ? (
           <ProjectDetailsView 
             project={selectedProject} 
-            onBack={() => setSelectedProject(null)} 
+            onBack={clearProjectNavigation}
           />
         ) : (
           <>
@@ -880,7 +911,7 @@ const App: React.FC = () => {
               {filteredData.map((project) => (
                 <div 
                   key={project.id}
-                  onClick={() => setSelectedProject(project)}
+                  onClick={() => navigateToProject(project.id)}
                   className="group rounded-xl overflow-hidden transition-all hover:-translate-y-1.5 hover:shadow-2xl flex flex-col h-full transform-gpu"
                   style={{ 
                     backgroundColor: COLORS.secondary, 
