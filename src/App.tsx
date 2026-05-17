@@ -15,7 +15,27 @@ import {
   X,
   AlertCircle,
   Mail,
-  Lock
+  Lock,
+  // --- Add these new icons required by the updated layout ---
+  MessageSquare,
+  Share2,
+  Calendar,
+  Cpu,
+  Shield,
+  FileCode,
+  Globe,
+  Tag,
+  ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
+  Maximize2,
+  MessageCircle,
+  ThumbsUp,
+  Clock,
+  ExternalLink,
+  ChevronUp,
+  FileCheck2,
+  Bookmark
 } from 'lucide-react';
 import { isVariableStatement } from 'typescript';
 
@@ -36,6 +56,25 @@ interface Project {
   genres: string[]; // This already matches Project.java @ElementCollection
   engine: string;
   releaseDate: string;
+}
+
+interface ProjectFile {
+  id: string;
+  fileName: string;
+  fileUrl: string;
+  fileSize: string;
+  version: string;
+  uploadDate: string;
+}
+
+interface ProjectComment {
+  id: string;
+  projectId: string;
+  userId: string;
+  content: string;
+  createdAt: string;
+  parent?: { id: string } | null;
+  replies?: ProjectComment[];
 }
 
 interface NavItem {
@@ -124,7 +163,7 @@ const App: React.FC = () => {
   const [isHeaderHovered, setIsHeaderHovered] = useState<boolean>(false);
   
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const API_URL = 'https://gtemp-backend.onrender.com' ;
+  const API_URL = 'https://gtemp-backend.onrender.com/'; // Change this to your backend URL if different;
   // Close dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -196,28 +235,33 @@ const App: React.FC = () => {
     }
   }, []); // Empty array means this runs once when the app starts
 
+  // FIX: Stable Hash Router that prevents layout/resize resets
   useEffect(() => {
-  const handleHashNavigation = () => {
-    const hash = window.location.hash;
-    if (hash.startsWith('#/project/')) {
-      const projectId = hash.replace('#/project/', '');
-      // Find matching asset within current loaded state
-      const match = projects.find(p => String(p.id) === projectId);
-      if (match) {
-        setSelectedProject(match);
+    const handleHashNavigation = () => {
+      const hash = window.location.hash;
+      if (hash.startsWith('#/project/')) {
+        const projectId = hash.replace('#/project/', '');
+        
+        // Prevent layout reflow flashes by checking if the project is already active
+        setSelectedProject((prevSelected) => {
+          if (prevSelected && String(prevSelected.id) === projectId) {
+            return prevSelected; // Returns exact reference context, stopping sub-tab re-mounting
+          }
+          const match = projects.find(p => String(p.id) === projectId);
+          return match || null;
+        });
+      } else {
+        setSelectedProject(null);
       }
-    } else {
-      // Clear view state if no valid routing pattern is detected
-      setSelectedProject(null);
+    };
+
+    if (projects.length > 0) {
+      handleHashNavigation();
     }
-  };
 
-  // Trigger router calculation whenever projects array updates or window location fires
-  handleHashNavigation();
-
-  window.addEventListener('hashchange', handleHashNavigation);
-  return () => window.removeEventListener('hashchange', handleHashNavigation);
-}, [projects]);
+    window.addEventListener('hashchange', handleHashNavigation);
+    return () => window.removeEventListener('hashchange', handleHashNavigation);
+  }, [projects.length]); // Track item array allocation length rather than variable updates
 
 const navigateToProject = (id: string) => {
   window.location.hash = `#/project/${id}`;
@@ -284,77 +328,468 @@ const clearProjectNavigation = () => {
   };
 
   const ProjectDetailsView: React.FC<{ project: Project; onBack: () => void }> = ({ project, onBack }) => {
-    return (
-      <div className="max-w-6xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-300">
-        <button onClick={onBack} className="mb-6 flex items-center gap-2 text-blue-400 hover:text-blue-300 transition-colors text-sm">
-          <X size={16} /> Back to Marketplace
-        </button>
+  const [activeSubTab, setActiveSubTab] = useState<'overview' | 'files' | 'comments'>('overview');
+  
+  // Media & Screenshots setup using dynamic random image seeds mapping to the current project
+  const screenshots = useMemo(() => [
+    `https://picsum.photos/seed/${project.id}-A/1200/675`,
+    `https://picsum.photos/seed/${project.id}-B/1200/675`,
+    `https://picsum.photos/seed/${project.id}-C/1200/675`,
+    `https://picsum.photos/seed/${project.id}-D/1200/675`,
+  ], [project.id]);
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column: Media & Description */}
-          <div className="lg:col-span-2 space-y-6">
-            <div className="aspect-video rounded-2xl overflow-hidden bg-black/40 border border-white/5">
-              <img 
-                src={`https://picsum.photos/seed/${project.id}/800/450`} 
-                alt={project.title} 
-                className="w-full h-full object-cover"
-              />
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [isWishlisted, setIsWishlisted] = useState(false);
+  
+  // Real Threaded Database Comments State
+  const [commentList, setCommentList] = useState<ProjectComment[]>([]);
+  const [newComment, setNewComment] = useState('');
+  const [replyingToId, setReplyingToId] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState('');
+
+  // Fetch comments hierarchy from backend API
+  const fetchComments = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/projects/${project.id}/comments`);
+      if (response.ok) {
+        const data = await response.json();
+        setCommentList(data);
+      }
+    } catch (error) {
+      console.error("Failed to sync comments with database:", error);
+    }
+  };
+
+  // Trigger sync on open or sub-tab switch
+  useEffect(() => {
+    if (project.id) {
+      fetchComments();
+    }
+  }, [project.id, activeSubTab]);
+
+  // Download & Purchase Simulation State
+  const [downloadingFileId, setDownloadingFileId] = useState<string | null>(null);
+  const [downloadProgress, setDownloadProgress] = useState(0);
+  const [isPurchased, setIsPurchased] = useState(false);
+  const [buying, setBuying] = useState(false);
+
+  // Structural mapping supporting internal files tab
+  const projectFiles: ProjectFile[] = useMemo(() => [
+    {
+      id: 'file-1',
+      fileName: `${project.title.replace(/\s+/g, '_')}_Core_v1.4.zip`,
+      fileUrl: '#',
+      fileSize: project.price === 0 ? '48.2 MB' : '142.5 MB',
+      version: 'v1.4.0',
+      uploadDate: '2026-03-01'
+    },
+    {
+      id: 'file-2',
+      fileName: `${project.title.replace(/\s+/g, '_')}_Demo_Project_Files.zip`,
+      fileUrl: '#',
+      fileSize: '315.8 MB',
+      version: 'v1.2.0',
+      uploadDate: '2026-01-15'
+    }
+  ], [project.title, project.price]);
+
+  const handleDownload = (fileId: string) => {
+    if (project.price > 0 && !isPurchased) {
+      alert("You must purchase the package to download the core files.");
+      return;
+    }
+    
+    setDownloadingFileId(fileId);
+    setDownloadProgress(0);
+    
+    const interval = setInterval(() => {
+      setDownloadProgress((prev) => {
+        if (prev >= 100) {
+          clearInterval(interval);
+          setTimeout(() => {
+            setDownloadingFileId(null);
+            alert("Download finished successfully!");
+          }, 500);
+          return 100;
+        }
+        return prev + 10;
+      });
+    }, 200);
+  };
+
+  // Handle posting top-level comments or replies directly to database
+  const handlePostComment = async (e: React.FormEvent, parentId: string | null = null) => {
+    e.preventDefault();
+    const content = parentId ? replyText : newComment;
+    if (!content.trim()) return;
+
+    // Build matching payload for Spring Boot controller
+    const payload = {
+      projectId: project.id,
+      userId: currentUser?.username ? "00000000-0000-0000-0000-000000000000" : "00000000-0000-0000-0000-000000000000", // Default fallback fallback UUID
+      content: content,
+      parent: parentId ? { id: parentId } : null
+    };
+
+    try {
+      const response = await fetch(`${API_URL}/api/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (response.ok) {
+        if (parentId) {
+          setReplyText('');
+          setReplyingToId(null);
+        } else {
+          setNewComment('');
+        }
+        fetchComments(); // Refresh comment tree layout
+      } else {
+        alert("Could not post comment to remote endpoint.");
+      }
+    } catch (error) {
+      console.error("Error creating comment:", error);
+    }
+  };
+
+  const nextImage = () => {
+    setSelectedImageIndex((prev) => (prev + 1) % screenshots.length);
+  };
+
+  const prevImage = () => {
+    setSelectedImageIndex((prev) => (prev - 1 + screenshots.length) % screenshots.length);
+  };
+
+  // Recursive UI element for comments and all sub-replies
+  const RenderCommentNode = ({ comment, depth = 0 }: { comment: ProjectComment; depth: number }) => (
+    <div 
+      className="group relative transition-all" 
+      style={{ marginLeft: depth > 0 ? `${Math.min(depth * 20, 80)}px` : '0px' }}
+    >
+      {/* Visual indicator lines for inner nested threads */}
+      {depth > 0 && (
+        <div className="absolute top-0 bottom-0 border-l border-white/10" style={{ left: '-12px' }} />
+      )}
+
+      <div className="bg-black/20 hover:bg-black/30 p-4 rounded-xl border border-white/5 mb-2 transition-all">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-[10px] font-bold text-white uppercase">
+              U
             </div>
-            
-            <div className="bg-[#2C394B] p-8 rounded-2xl border border-[#334756]">
-              <h2 className="text-2xl font-bold mb-4">Description</h2>
-              <p className="text-gray-300 leading-relaxed whitespace-pre-line">
-                {project.description}
-              </p>
+            <span className="text-xs font-bold text-gray-300">User_{comment.userId.substring(0, 4)}</span>
+            <span className="text-[10px] text-gray-500 font-mono">
+              {new Date(comment.createdAt).toLocaleDateString()}
+            </span>
+          </div>
+        </div>
+
+        <p className="text-gray-300 text-sm whitespace-pre-wrap pl-2 leading-relaxed">{comment.content}</p>
+        
+        {/* Thread Action Controls */}
+        <div className="flex items-center gap-4 mt-2 pl-2">
+          <button
+            type="button"
+            onClick={() => setReplyingToId(replyingToId === comment.id ? null : comment.id)}
+            className="text-[11px] text-gray-400 hover:text-blue-400 flex items-center gap-1 transition-colors"
+          >
+            <MessageCircle size={12} />
+            Reply
+          </button>
+        </div>
+
+        {/* Reply Submission Drawer */}
+        {replyingToId === comment.id && (
+          <div className="mt-3 pl-2 border-l border-blue-500/40">
+            <textarea
+              value={replyText}
+              onChange={(e) => setReplyText(e.target.value)}
+              placeholder="Post a response thread..."
+              className="w-full bg-black/40 text-white rounded-lg p-2 text-xs border border-white/10 focus:outline-none focus:border-blue-500 min-h-[50px]"
+            />
+            <div className="flex justify-end gap-2 mt-1.5">
+              <button
+                type="button"
+                onClick={() => setReplyingToId(null)}
+                className="px-2 py-1 text-[10px] text-gray-400 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={(e) => handlePostComment(e, comment.id)}
+                className="px-2.5 py-1 bg-blue-600 text-white font-bold text-[10px] rounded hover:bg-blue-500 transition-all"
+              >
+                Submit Reply
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Recursive Deep Interator */}
+      {comment.replies && comment.replies.map((reply) => (
+        <RenderCommentNode key={reply.id} comment={reply} depth={depth + 1} />
+      ))}
+    </div>
+  );
+
+  return (
+    <div className="max-w-[1440px] mx-auto pb-16 animate-in fade-in slide-in-from-bottom-4 duration-300 text-white">
+      
+      {/* LIGHTBOX OVERLAY */}
+      {isLightboxOpen && (
+        <div className="fixed inset-0 bg-black/95 z-[120] flex flex-col justify-center items-center p-4">
+          <button 
+            onClick={() => setIsLightboxOpen(false)} 
+            className="absolute top-6 right-6 text-gray-400 hover:text-white transition-all bg-white/5 p-3 rounded-full hover:bg-white/10"
+          >
+            <X size={28} />
+          </button>
+          <div className="relative max-w-5xl w-full flex items-center justify-center">
+            <button onClick={prevImage} className="absolute left-4 p-3 rounded-full bg-black/60 hover:bg-black/90 text-white border border-white/10 transition-all">
+              <ChevronLeft size={24} />
+            </button>
+            <img src={screenshots[selectedImageIndex]} alt="Enlarged screenshot" className="max-h-[80vh] max-w-full rounded-lg object-contain border border-white/5 shadow-2xl" />
+            <button onClick={nextImage} className="absolute right-4 p-3 rounded-full bg-black/60 hover:bg-black/90 text-white border border-white/10 transition-all">
+              <ChevronRight size={24} />
+            </button>
+          </div>
+          <div className="mt-4 text-sm text-gray-400 font-mono">
+            Screenshot {selectedImageIndex + 1} of {screenshots.length}
+          </div>
+        </div>
+      )}
+
+      {/* BREADCRUMB HEADER BAR */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <button 
+          onClick={onBack} 
+          className="group flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white transition-all text-xs border border-white/5"
+        >
+          <ArrowLeft size={14} className="group-hover:-translate-x-1 transition-transform" /> Back to Marketplace
+        </button>
+        <div className="flex items-center gap-2 text-xs text-gray-400 font-mono">
+          <span>Marketplace</span>
+          <span>/</span>
+          <span>{project.engine}</span>
+          <span>/</span>
+          <span className="text-blue-400">{project.title}</span>
+        </div>
+      </div>
+
+      {/* MAIN TWO-COLUMN CONTAINER */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        {/* LEFT COLUMN: Media Showcase, Section Tabs */}
+        <div className="lg:col-span-8 space-y-6">
+          
+          {/* CAROUSEL SCREENSHOT CONTAINER */}
+          <div className="bg-[#2C394B] rounded-2xl overflow-hidden border border-[#334756] shadow-xl">
+            <div className="relative aspect-video w-full bg-slate-900 group">
+              <img src={screenshots[selectedImageIndex]} alt={`${project.title} preview`} className="w-full h-full object-cover" />
+              <div className="absolute top-4 right-4">
+                <button 
+                  onClick={() => setIsLightboxOpen(true)} 
+                  className="p-2.5 rounded-lg bg-black/70 hover:bg-black/90 border border-white/10 text-white transition-all shadow-md"
+                  title="View fullscreen"
+                >
+                  <Maximize2 size={16} />
+                </button>
+              </div>
+              <button onClick={prevImage} className="absolute left-4 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-black/60 hover:bg-black/90 border border-white/10 text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                <ChevronLeft size={18} />
+              </button>
+              <button onClick={nextImage} className="absolute right-4 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-black/60 hover:bg-black/90 border border-white/10 text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                <ChevronRight size={18} />
+              </button>
+            </div>
+
+            {/* THUMBNAIL TRACK */}
+            <div className="p-3 bg-[#1e2736] border-t border-[#334756] flex gap-2.5 overflow-x-auto no-scrollbar">
+              {screenshots.map((url, i) => (
+                <button 
+                  key={i} 
+                  onClick={() => setSelectedImageIndex(i)} 
+                  className={`relative w-28 aspect-video rounded-lg overflow-hidden border-2 flex-shrink-0 transition-all ${selectedImageIndex === i ? 'border-blue-500 scale-95' : 'border-transparent opacity-60 hover:opacity-100'}`}
+                >
+                  <img src={url} alt="Thumbnail" className="w-full h-full object-cover" />
+                </button>
+              ))}
             </div>
           </div>
 
-          {/* Right Column: Buy Box & Stats */}
-          <div className="space-y-4">
-            <div className="bg-[#2C394B] p-6 rounded-2xl border border-[#334756] sticky top-24">
-              <h1 className="text-3xl font-black mb-2">{project.title}</h1>
-              <p className="text-gray-400 mb-6 flex items-center gap-2">
-                by <span className="text-blue-400 font-bold">{project.owner?.username}</span>
-              </p>
+          {/* HIGH-END NAVIGATION SUB-TABS */}
+          <div className="border-b border-[#334756] flex gap-8">
+            {(['overview', 'files', 'comments'] as const).map((tab) => (
+              <button 
+                key={tab} 
+                onClick={() => setActiveSubTab(tab)} 
+                className={`pb-4 text-sm font-bold uppercase tracking-wider relative transition-all ${activeSubTab === tab ? 'text-white border-b-2 border-blue-500' : 'text-gray-400 hover:text-gray-200'}`}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
 
-              <div className="flex items-center justify-between mb-6 p-4 bg-black/20 rounded-xl">
-                <span className="text-2xl font-mono font-bold text-emerald-400">
+          {/* TAB CONDITIONAL RENDERING */}
+          {activeSubTab === 'overview' && (
+            <div className="bg-[#2C394B] p-8 rounded-2xl border border-[#334756] shadow-md space-y-6">
+              <div>
+                <h2 className="text-xl font-bold mb-3 flex items-center gap-2">
+                  <FileCode size={20} className="text-blue-400" /> Project Description
+                </h2>
+                <p className="text-gray-300 leading-relaxed whitespace-pre-line text-sm">
+                  {project.description}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {activeSubTab === 'files' && (
+            <div className="space-y-3">
+              {projectFiles.map((file) => (
+                <div key={file.id} className="bg-[#2C394B] border border-[#334756] p-4 rounded-xl flex items-center justify-between hover:border-white/10 transition-all">
+                  <div className="flex items-center gap-3">
+                    <div className="p-3 bg-black/20 rounded-lg text-blue-400">
+                      <FileCheck2 size={22} />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-sm text-gray-200">{file.fileName}</h4>
+                      <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-3">
+                        <span>Size: <strong className="text-gray-300">{file.fileSize}</strong></span>
+                        <span>•</span>
+                        <span>Version: <strong className="text-blue-400">{file.version}</strong></span>
+                        <span>•</span>
+                        <span>Uploaded: {file.uploadDate}</span>
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleDownload(file.id)}
+                    disabled={downloadingFileId !== null}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-lg transition-all flex items-center gap-2 disabled:bg-white/5 disabled:text-gray-500"
+                  >
+                    {downloadingFileId === file.id ? (
+                      <span>Downloading ({downloadProgress}%)</span>
+                    ) : (
+                      <>
+                        <Download size={14} /> Download
+                      </>
+                    )}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {activeSubTab === 'comments' && (
+            <div className="space-y-6">
+              {/* Top-Level Base Comment Post Form */}
+              <form onSubmit={(e) => handlePostComment(e, null)} className="bg-[#2C394B] border border-[#334756] p-5 rounded-xl space-y-4">
+                <h3 className="font-bold text-sm text-gray-200 flex items-center gap-2">
+                  <MessageSquare size={16} className="text-blue-400" /> Discussion Board
+                </h3>
+                <textarea
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  placeholder="Share your experience or ask a question about this asset pack..."
+                  className="w-full bg-black/20 border border-[#334756] rounded-xl p-3 text-sm text-gray-200 focus:outline-none focus:border-blue-500 min-h-[100px] resize-none"
+                />
+                <button type="submit" className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg transition-all">
+                  Post Comment
+                </button>
+              </form>
+
+              {/* Recursive Iteration Output Track */}
+              <div className="space-y-4 max-h-[600px] overflow-y-auto pr-1">
+                {commentList.length === 0 ? (
+                  <p className="text-center py-8 text-xs text-gray-500 font-mono">No discussions found on this asset yet.</p>
+                ) : (
+                  commentList.map((rootComment) => (
+                    <RenderCommentNode key={rootComment.id} comment={rootComment} depth={0} />
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* RIGHT COLUMN: Interactive Checkout Action Box */}
+        <div className="lg:col-span-4 space-y-4">
+          <div className="bg-[#2C394B] p-6 rounded-2xl border border-[#334756] sticky top-24 shadow-xl space-y-6">
+            <div>
+              <h1 className="text-2xl font-black mb-1.5 tracking-tight">{project.title}</h1>
+              <p className="text-xs text-gray-400 flex items-center gap-1.5">
+                Engine Suite: <span className="text-blue-400 font-mono font-bold bg-blue-500/10 px-2 py-0.5 rounded">{project.engine}</span>
+              </p>
+            </div>
+
+            <div className="flex items-center justify-between p-4 bg-black/20 rounded-xl border border-white/5">
+              <div>
+                <span className="text-xs text-gray-400 block font-mono uppercase">Asset Price</span>
+                <span className="text-2xl font-mono font-black text-emerald-400">
                   {project.price === 0 ? 'FREE' : `$${project.price.toFixed(2)}`}
                 </span>
-                <div className="flex items-center gap-1 text-yellow-500">
-                  <Star size={18} fill="currentColor" />
-                  <span className="font-bold">{project.ratingAvg}</span>
+              </div>
+              <div className="text-right">
+                <span className="text-xs text-gray-400 block font-mono uppercase">Review Matrix</span>
+                <div className="flex items-center gap-1 text-yellow-500 font-bold justify-end">
+                  <Star size={15} fill="currentColor" />
+                  <span className="text-sm">{project.ratingAvg || '0.0'}</span>
                 </div>
               </div>
+            </div>
 
-              <button className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-all shadow-lg active:scale-95 mb-3">
-                {project.price === 0 ? 'Download Now' : 'Purchase Project'}
+            <div className="space-y-2">
+              <button 
+                onClick={() => {
+                  if (project.price > 0 && !isPurchased) {
+                    setBuying(true);
+                    setTimeout(() => {
+                      setBuying(false);
+                      setIsPurchased(true);
+                      alert(`Mock Success: Authorized transaction for ${project.title}!`);
+                    }, 1000);
+                  } else {
+                    alert("Initializing secure file stream configuration...");
+                  }
+                }} 
+                disabled={buying}
+                className="w-full py-3.5 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 text-white text-sm font-bold rounded-xl transition-all shadow-lg transform active:scale-[0.98]"
+              >
+                {buying ? 'Processing Setup...' : (project.price === 0 || isPurchased ? 'Download Package Asset' : 'Purchase Licensing')}
               </button>
-              
-              <button className="w-full py-3 bg-white/5 hover:bg-white/10 text-white font-bold rounded-xl border border-white/10 transition-all">
-                Add to Wishlist
+              <button onClick={() => setIsWishlisted(!isWishlisted)} className={`w-full py-2.5 text-xs font-bold rounded-xl border transition-all flex items-center justify-center gap-2 ${isWishlisted ? 'bg-red-500/10 border-red-500 text-red-400' : 'bg-white/5 border-white/10 hover:bg-white/10 text-white'}`} >
+                <Bookmark size={14} fill={isWishlisted ? "currentColor" : "none"} /> {isWishlisted ? 'Wishlisted' : 'Add to Catalog Wishlist'}
               </button>
+            </div>
 
-              <div className="mt-8 pt-6 border-t border-white/5 space-y-3">
-                <div className="flex justify-between text-xs">
-                  <span className="text-gray-500 uppercase font-bold">Engine</span>
-                  <span className="text-gray-200">{project.engine}</span>
-                </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-gray-500 uppercase font-bold">Downloads</span>
-                  <span className="text-gray-200">{project.downloadCount.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-gray-500 uppercase font-bold">Released</span>
-                  <span className="text-gray-200">{new Date(project.releaseDate).toLocaleDateString()}</span>
-                </div>
+            {/* LOWER TECHNICAL SPECS INDEX */}
+            <div className="pt-4 border-t border-[#334756] space-y-2.5 font-mono text-[11px]">
+              <div className="flex justify-between">
+                <span className="text-gray-400 uppercase">Vendor Profile</span>
+                <span className="text-gray-200 font-bold">@{project.owner?.username || 'Unknown'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400 uppercase">Traffic Distribution</span>
+                <span className="text-gray-200">{(project.downloadCount || 0).toLocaleString()} transfers</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400 uppercase">Production Launch</span>
+                <span className="text-gray-200">{new Date(project.releaseDate).toLocaleDateString()}</span>
               </div>
             </div>
           </div>
         </div>
+
       </div>
-    );
-  };
+    </div>
+  );
+};
 
   const handleLogout = () => {
     localStorage.removeItem('gtemp_user');
